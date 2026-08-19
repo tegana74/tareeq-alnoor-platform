@@ -27,7 +27,7 @@ function useSubmit(action: (prev: State, form: FormData) => Promise<State>) {
   const [state, formAction, pending] = useActionState(async (prev: State, form: FormData) => {
     const res = await action(prev, form)
     if (res.ok) {
-      router.refresh()
+      try { await router.refresh() } catch { /* ignore refresh errors */ }
       return { ok: true }
     }
     return res
