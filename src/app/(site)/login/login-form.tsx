@@ -91,6 +91,12 @@ export function LoginForm() {
         </Button>
 
         <p className="text-center text-sm text-slate-500">
+          <Link href="/forgot-password" className="font-bold text-amber-600 hover:underline">
+            نسيت كلمة المرور؟
+          </Link>
+        </p>
+
+        <p className="text-center text-sm text-slate-500">
           لسه ماعندكش حساب؟{" "}
           <Link href="/register" className="font-bold text-amber-600 hover:underline">
             أنشئ حساب جديد

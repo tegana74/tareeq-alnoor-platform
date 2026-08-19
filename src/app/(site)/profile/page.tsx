@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, ClipboardList, Wallet } from "lucide-react"
+import { ChevronLeft, ClipboardList, Lock, Wallet } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { formatDate, formatPrice } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { ChangePasswordForm } from "./change-password-form"
 
 export const metadata: Metadata = { title: "حسابي" }
 
@@ -123,6 +124,14 @@ export default async function ProfilePage() {
             عدد الاختبارات التي أديتها: {attempts}
           </Button>
         </div>
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <Lock className="h-5 w-5 text-navy" />
+          <h2 className="font-black text-navy">تغيير كلمة المرور</h2>
+        </div>
+        <ChangePasswordForm />
       </div>
     </div>
   )
