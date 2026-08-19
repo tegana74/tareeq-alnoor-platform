@@ -151,41 +151,40 @@ const bookSchema = z.object({
 })
 
 export async function saveBookAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
-  const sectionId = String(formData.get("sectionId") ?? "")
-  const { user, section } = await ownsSection(sectionId)
-  if (!user || !section) return { ok: false, error: "غير مصرح" }
+  try {
+    const sectionId = String(formData.get("sectionId") ?? "")
+    const { user, section } = await ownsSection(sectionId)
+    if (!user || !section) return { ok: false, error: "غير مصرح" }
 
-  const parsed = bookSchema.safeParse({
-    id: formData.get("id") ?? undefined,
-    title: formData.get("title"),
-    description: formData.get("description") ?? undefined,
-    type: formData.get("type"),
-    fileUrl: formData.get("fileUrl"),
-    isFree: formData.get("isFree") ?? undefined,
-    downloadAllowed: formData.get("downloadAllowed") ?? undefined,
-    order: formData.get("order"),
-  })
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message }
+    const parsed = bookSchema.safeParse({
+      id: formData.get("id") ?? undefined,
+      title: formData.get("title"),
+      description: formData.get("description") ?? undefined,
+      type: formData.get("type"),
+      fileUrl: formData.get("fileUrl"),
+      isFree: formData.get("isFree") ?? undefined,
+      downloadAllowed: formData.get("downloadAllowed") ?? undefined,
+      order: formData.get("order"),
+    })
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message }
 
-  if (parsed.data.id) {
-    const existing = await prisma.book.findFirst({ where: { id: parsed.data.id, sectionId } })
-    if (!existing) return { ok: false, error: "الكتاب غير موجود" }
-    await prisma.book.update({
-      where: { id: parsed.data.id },
-      data: { ...parsed.data, description: parsed.data.description || null },
-    })
-  } else {
-    const max = await prisma.book.aggregate({ where: { sectionId }, _max: { order: true } })
-    await prisma.book.create({
-      data: {
-        ...parsed.data,
-        sectionId,
-        description: parsed.data.description || null,
-        order: parsed.data.order || (max._max.order ?? 0) + 1,
-      },
-    })
+    const { id, ...data } = parsed.data
+    const bookData = { ...data, description: data.description || null }
+
+    if (id) {
+      const existing = await prisma.book.findFirst({ where: { id, sectionId } })
+      if (!existing) return { ok: false, error: "الكتاب غير موجود" }
+      await prisma.book.update({ where: { id }, data: bookData })
+    } else {
+      const max = await prisma.book.aggregate({ where: { sectionId }, _max: { order: true } })
+      await prisma.book.create({
+        data: { ...bookData, sectionId, order: bookData.order || (max._max.order ?? 0) + 1 },
+      })
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: "خطأ في الحفظ: " + (e instanceof Error ? e.message : String(e)) }
   }
-  return { ok: true }
 }
 
 export async function deleteBookAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
