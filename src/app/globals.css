@@ -1,0 +1,290 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+  --font-sans: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+
+  /* ألوان النور */
+  --color-primary: #f59e0b;
+  --color-primary-light: #fbbf24;
+  --color-primary-dark: #d97706;
+  --color-primary-50: #fffbeb;
+  --color-primary-100: #fef3c7;
+
+  --color-navy: #1e1b4b;
+  --color-navy-light: #312e81;
+  --color-navy-dark: #141233;
+
+  --color-mint: #10b981;
+  --color-mint-light: #34d399;
+  --color-mint-dark: #059669;
+
+  --color-royal: #2563eb;
+  --color-royal-light: #60a5fa;
+  --color-royal-dark: #1d4ed8;
+
+  --color-surface: #f8fafc;
+  --color-ink: #0f172a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-cairo), sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* شريط تمرير أنيق */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #e2e8f0;
+}
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* تدرج النور */
+.bg-light-glow {
+  background:
+    radial-gradient(1200px 400px at 50% -10%, rgba(245, 158, 11, 0.18), transparent 60%),
+    radial-gradient(800px 400px at 90% 0%, rgba(37, 99, 235, 0.12), transparent 60%),
+    #f8fafc;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(90deg, #f59e0b, #f97316, #f59e0b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeUp 0.5s ease-out both;
+}
+
+/* الوضع الليلي */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .bg-light-glow {
+  background:
+    radial-gradient(1200px 400px at 50% -10%, rgba(245, 158, 11, 0.08), transparent 60%),
+    radial-gradient(800px 400px at 90% 0%, rgba(37, 99, 235, 0.08), transparent 60%),
+    #0f172a;
+}
+
+[data-theme="dark"] .bg-white {
+  background-color: #1e293b;
+}
+[data-theme="dark"] .bg-slate-50 {
+  background-color: #16213a;
+}
+[data-theme="dark"] .bg-slate-100 {
+  background-color: #263449;
+}
+[data-theme="dark"] .bg-slate-200 {
+  background-color: #334155;
+}
+[data-theme="dark"] .bg-slate-800 {
+  background-color: #0f172a;
+}
+
+[data-theme="dark"] .border-slate-100 {
+  border-color: #334155;
+}
+[data-theme="dark"] .border-slate-200 {
+  border-color: #334155;
+}
+[data-theme="dark"] .border-slate-200\/80 {
+  border-color: rgba(51, 65, 85, 0.8);
+}
+[data-theme="dark"] .divide-slate-50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155;
+}
+
+[data-theme="dark"] .text-navy {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .text-navy-dark {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .text-ink {
+  color: #e2e8f0;
+}
+[data-theme="dark"] .text-slate-300 {
+  color: #cbd5e1;
+}
+[data-theme="dark"] .text-slate-400 {
+  color: #94a3b8;
+}
+[data-theme="dark"] .text-slate-500 {
+  color: #94a3b8;
+}
+[data-theme="dark"] .text-slate-600 {
+  color: #cbd5e1;
+}
+[data-theme="dark"] .text-slate-700 {
+  color: #e2e8f0;
+}
+[data-theme="dark"] .text-slate-800 {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .text-slate-900 {
+  color: #f8fafc;
+}
+[data-theme="dark"] .text-white {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] ::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .bg-white\/5 {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .bg-white\/20 {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+[data-theme="dark"] .bg-white\/90 {
+  background-color: rgba(30, 41, 59, 0.9);
+}
+[data-theme="dark"] .hover\:bg-white\/10:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* خلفيات فاتحة ملونة — تُغمَّق في الوضع الليلي حتى تظهر عليها النصوص المضيئة */
+[data-theme="dark"] .bg-amber-50 {
+  background-color: #3b2408;
+}
+[data-theme="dark"] .bg-amber-100 {
+  background-color: #452a0d;
+}
+[data-theme="dark"] .bg-mint-50 {
+  background-color: #052e24;
+}
+[data-theme="dark"] .bg-mint-100 {
+  background-color: #064e3b;
+}
+[data-theme="dark"] .bg-rose-50 {
+  background-color: #4a1122;
+}
+[data-theme="dark"] .bg-rose-100 {
+  background-color: #64152e;
+}
+[data-theme="dark"] .bg-rose-200 {
+  background-color: #881337;
+}
+[data-theme="dark"] .bg-royal-50 {
+  background-color: #15254e;
+}
+[data-theme="dark"] .bg-violet-50 {
+  background-color: #2e1065;
+}
+[data-theme="dark"] .bg-violet-100 {
+  background-color: #3b0764;
+}
+[data-theme="dark"] .bg-emerald-50 {
+  background-color: #022c22;
+}
+[data-theme="dark"] .bg-orange-50 {
+  background-color: #431407;
+}
+[data-theme="dark"] .bg-cyan-50 {
+  background-color: #083344;
+}
+
+/* حدود ملونة — تُغمَّق لتبقى واضحة */
+[data-theme="dark"] .border-amber-200 {
+  border-color: #854d0e;
+}
+[data-theme="dark"] .border-amber-300 {
+  border-color: #a16207;
+}
+[data-theme="dark"] .border-mint-200 {
+  border-color: #065f46;
+}
+[data-theme="dark"] .border-rose-300 {
+  border-color: #9f1239;
+}
+[data-theme="dark"] .border-rose-400 {
+  border-color: #e11d48;
+}
+
+/* ألوان نصية ملوّنة — تُفتَّح لتظهر على الخلفيات الداكنة */
+[data-theme="dark"] .text-amber-500 {
+  color: #fbbf24;
+}
+[data-theme="dark"] .text-amber-600 {
+  color: #fbbf24;
+}
+[data-theme="dark"] .text-amber-700 {
+  color: #fcd34d;
+}
+[data-theme="dark"] .text-amber-800 {
+  color: #fde68a;
+}
+[data-theme="dark"] .text-mint-dark {
+  color: #34d399;
+}
+[data-theme="dark"] .text-rose-500 {
+  color: #fb7185;
+}
+[data-theme="dark"] .text-rose-600 {
+  color: #fb7185;
+}
+[data-theme="dark"] .text-royal {
+  color: #93c5fd;
+}
+[data-theme="dark"] .text-violet-600 {
+  color: #c4b5fd;
+}
+[data-theme="dark"] .text-emerald-600 {
+  color: #6ee7b7;
+}
+[data-theme="dark"] .text-orange-600 {
+  color: #fdba74;
+}
+[data-theme="dark"] .text-cyan-600 {
+  color: #67e8f9;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}

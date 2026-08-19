@@ -1,0 +1,829 @@
+// منصة طريق النور التعليمية — مخطط قاعدة البيانات
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================= المستخدمون والأدوار =============================
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+  MODERATOR
+  CENTER_USER
+  PARENT
+}
+
+model User {
+  id            String   @id @default(cuid())
+  phone         String   @unique
+  password      String
+  firstName     String
+  middleName    String?
+  lastName      String
+  email         String?  @unique
+  nationalId    String?  @unique
+  role          Role     @default(STUDENT)
+  avatar        String?
+  isActive      Boolean  @default(true)
+  isBlocked     Boolean  @default(false)
+  walletBalance Decimal  @default(0)
+  points        Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  year         Year?       @relation(fields: [yearId], references: [id])
+  yearId       String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+
+  teacherProfile         Teacher?                 @relation(fields: [teacherId], references: [id])
+  teacherId              String?                  @unique
+  subscriptions          Subscription[]
+  walletTransactions     WalletTransaction[]
+  invoices               Invoice[]
+  examAttempts           ExamAttempt[]
+  videoViews             VideoView[]
+  favorites              Favorite[]
+  bookmarks              Bookmark[]
+  posts                  CommunityPost[]
+  comments               CommunityComment[]
+  notifications          Notification[]
+  studyPlanFinishes      StudyPlanSubjectFinish[]
+  sessionBookings        SessionBooking[]
+  liveSessionAttendances LiveSessionAttendance[]
+  pointTransactions      PointsTransaction[]
+  codeActivations        InsertCodeUsage[]
+  exemptions             ExemptionRequest[]
+  personalExamAttempts   PersonalExamAttempt[]
+  assignedExams          UserExamAssignment[]
+  parentChildLinks       ParentChildLink[]        @relation("parent")
+  parentLinks            ParentChildLink[]        @relation("child")
+  sessions               Session[]
+  appeals                Appeal[]
+
+  @@map("users")
+}
+
+// ربط ولي الأمر بالأبناء
+model ParentChildLink {
+  id        String   @id @default(cuid())
+  parentId  String
+  childId   String
+  createdAt DateTime @default(now())
+  parent    User     @relation("parent", fields: [parentId], references: [id], onDelete: Cascade)
+  child     User     @relation("child", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@map("parent_child_links")
+}
+
+// ============================= التسلسل التعليمي =============================
+
+model Year {
+  id          String       @id @default(cuid())
+  name        String
+  order       Int          @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  departments Department[]
+  subjects    Subject[]
+  users       User[]
+  courses     Course[]
+
+  @@map("years")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String
+  yearId    String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  year      Year     @relation(fields: [yearId], references: [id], onDelete: Cascade)
+  users     User[]
+  courses   Course[]
+
+  @@map("departments")
+}
+
+model Subject {
+  id           String        @id @default(cuid())
+  name         String
+  icon         String?
+  color        String?
+  yearId       String?
+  order        Int           @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  year         Year?         @relation(fields: [yearId], references: [id], onDelete: SetNull)
+  courses      Course[]
+  bankChapters BankChapter[]
+
+  @@map("subjects")
+}
+
+model Teacher {
+  id           String        @id @default(cuid())
+  name         String
+  title        String?
+  image        String?
+  bio          String?
+  isFeatured   Boolean       @default(false)
+  sortOrder    Int           @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  user         User?
+  courses      Course[]
+  liveSessions LiveSession[]
+
+  @@map("teachers")
+}
+
+// ============================= الكورسات =============================
+
+model Course {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  cover               String?
+  price               Decimal  @default(0)
+  priceBeforeDiscount Decimal?
+  isFeatured          Boolean  @default(false)
+  isActive            Boolean  @default(true)
+  order               Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  yearId       String?
+  departmentId String?
+  subjectId    String
+  teacherId    String
+
+  year       Year?       @relation(fields: [yearId], references: [id], onDelete: SetNull)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  subject    Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  sections      Section[]
+  subscriptions Subscription[]
+  favorites     Favorite[]
+  invoices      Invoice[]
+  liveSessions  LiveSession[]
+
+  @@map("courses")
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  name      String
+  courseId  String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  videos    Video[]
+  books     Book[]
+  exams     Exam[]
+
+  @@map("sections")
+}
+
+enum VideoProvider {
+  UPLOAD
+  YOUTUBE
+  VIMEO
+  VDOCIPHER
+  BUNNY
+  GUMLET
+}
+
+model Video {
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  provider        VideoProvider @default(UPLOAD)
+  url             String
+  duration        Int           @default(0)
+  isFree          Boolean       @default(false)
+  downloadAllowed Boolean       @default(false)
+  order           Int           @default(0)
+  sectionId       String
+  createdAt       DateTime      @default(now())
+  section         Section       @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  videoViews      VideoView[]
+  bookmarks       Bookmark[]
+
+  @@map("videos")
+}
+
+enum BookType {
+  BOOK
+  NOTES
+  SUMMARY
+  AUDIO
+  FILE
+}
+
+model Book {
+  id              String     @id @default(cuid())
+  title           String
+  description     String?
+  type            BookType   @default(BOOK)
+  fileUrl         String
+  isFree          Boolean    @default(false)
+  downloadAllowed Boolean    @default(false)
+  order           Int        @default(0)
+  sectionId       String
+  createdAt       DateTime   @default(now())
+  section         Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  bookmarks       Bookmark[]
+
+  @@map("books")
+}
+
+// ============================= الامتحانات والأسئلة =============================
+
+enum ExamType {
+  EXAM
+  HOMEWORK
+  EVALUATION
+}
+
+model Exam {
+  id              String               @id @default(cuid())
+  title           String
+  type            ExamType             @default(EXAM)
+  durationMinutes Int                  @default(60)
+  totalScore      Int                  @default(0)
+  isFree          Boolean              @default(false)
+  order           Int                  @default(0)
+  sectionId       String
+  createdAt       DateTime             @default(now())
+  section         Section              @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  questions       Question[]
+  attempts        ExamAttempt[]
+  assignments     UserExamAssignment[]
+
+  @@map("exams")
+}
+
+enum QuestionType {
+  MCQ
+  ESSAY
+  AUTO_ESSAY
+}
+
+model Question {
+  id            String       @id @default(cuid())
+  text          String
+  type          QuestionType @default(MCQ)
+  options       Json? // MCQ: ["أ","ب","ج","د"]
+  correctAnswer String?
+  points        Int          @default(1)
+  order         Int          @default(0)
+  examId        String?
+  createdAt     DateTime     @default(now())
+  exam          Exam?        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  attempts      ExamAnswer[]
+
+  @@map("questions")
+}
+
+model ExamAttempt {
+  id         String       @id @default(cuid())
+  userId     String
+  examId     String
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+  score      Decimal      @default(0)
+  totalScore Decimal      @default(0)
+  status     String       @default("in_progress") // in_progress | submitted | graded
+  isPassed   Boolean?
+  createdAt  DateTime     @default(now())
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam       Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers    ExamAnswer[]
+  appeals    Appeal[]
+
+  @@map("exam_attempts")
+}
+
+model ExamAnswer {
+  id           String      @id @default(cuid())
+  attemptId    String
+  questionId   String
+  userAnswer   String? // MCQ: index/letter, ESSAY: text
+  isCorrect    Boolean?
+  earnedPoints Decimal     @default(0)
+  feedback     String?
+  gradedBy     String? // teacher user id or "auto"
+  gradedAt     DateTime?
+  attempt      ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question     Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("exam_answers")
+}
+
+// تظلم طالب على نتيجة امتحان
+model Appeal {
+  id          String      @id @default(cuid())
+  attemptId   String
+  userId      String
+  reason      String
+  response    String?
+  status      String      @default("pending") // pending | approved | rejected
+  extraPoints Int         @default(0) // نقاط إضافية تُضاف للدرجة عند الموافقة
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  attempt     ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@map("appeals")
+}
+
+// توزيع امتحان على طلاب محددين
+model UserExamAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  examId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, examId])
+  @@map("user_exam_assignments")
+}
+
+// امتحان شخصي (من بنك الأسئلة)
+model PersonalExamAttempt {
+  id         String    @id @default(cuid())
+  userId     String
+  title      String
+  questions  Json
+  answers    Json?
+  score      Decimal?
+  totalScore Decimal?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("personal_exam_attempts")
+}
+
+// ============================= بنك الأسئلة =============================
+
+model BankChapter {
+  id        String         @id @default(cuid())
+  subjectId String
+  name      String
+  order     Int            @default(0)
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions BankQuestion[]
+
+  @@map("bank_chapters")
+}
+
+model BankQuestion {
+  id            String       @id @default(cuid())
+  chapterId     String
+  text          String
+  type          QuestionType @default(MCQ)
+  options       Json? // MCQ: ["أ","ب","ج","د"]
+  correctAnswer String? // MCQ: index/letter
+  points        Int          @default(1)
+  difficulty    String       @default("medium") // easy | medium | hard
+  explanation   String?
+  createdAt     DateTime     @default(now())
+  chapter       BankChapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@map("bank_questions")
+}
+
+// ============================= الاشتراكات والمدفوعات =============================
+
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String
+  courseId  String
+  price     Decimal
+  status    String    @default("active") // active | expired | cancelled
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("subscriptions")
+}
+
+enum InvoiceType {
+  SUBSCRIBE
+  WALLET_CHARGE
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  REJECTED
+}
+
+enum PaymentMethod {
+  VODAFONE_CASH
+  INSTAPAY
+  WALLET
+  CODE
+}
+
+model Invoice {
+  id                 String              @id @default(cuid())
+  userId             String
+  type               InvoiceType
+  amount             Decimal
+  status             InvoiceStatus       @default(PENDING)
+  method             PaymentMethod
+  reference          String? // رقم مرجع التحويل/الإيصال
+  senderName         String?
+  notes              String?
+  proofImage         String?
+  courseId           String? // عند شراء كورس
+  rejectedReason     String?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  createdAt          DateTime            @default(now())
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course             Course?             @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  walletTransactions WalletTransaction[]
+  paymentProof       PaymentProof?
+
+  @@map("invoices")
+}
+
+model WalletTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  amount       Decimal // سالب = خصم، موجب = إيداع
+  balanceAfter Decimal
+  type         String // charge | subscribe | refund | code
+  invoiceId    String?
+  description  String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice      Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@map("wallet_transactions")
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  discountType  String // percentage | fixed
+  discountValue Decimal
+  maxUses       Int       @default(1)
+  usedCount     Int       @default(0)
+  isActive      Boolean   @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@map("coupons")
+}
+
+// أكواد الشحن (كروت السنتر / insert_auto)
+model InsertCode {
+  id        String            @id @default(cuid())
+  code      String            @unique
+  value     Decimal
+  isUsed    Boolean           @default(false)
+  center    String?
+  createdAt DateTime          @default(now())
+  usedAt    DateTime?
+  usages    InsertCodeUsage[]
+
+  @@map("insert_codes")
+}
+
+model InsertCodeUsage {
+  id        String     @id @default(cuid())
+  codeId    String
+  userId    String
+  createdAt DateTime   @default(now())
+  code      InsertCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("insert_code_usages")
+}
+
+// إثباتات الدفع المرتبطة بالفواتير
+model PaymentProof {
+  id         String    @id @default(cuid())
+  invoiceId  String    @unique
+  reference  String
+  senderName String
+  amount     Decimal
+  date       DateTime?
+  imageUrl   String
+  createdAt  DateTime  @default(now())
+  invoice    Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("payment_proofs")
+}
+
+// ============================= متابعة المشاهدة والمفضلة =============================
+
+model VideoView {
+  id            String   @id @default(cuid())
+  userId        String
+  videoId       String
+  progress      Int      @default(0) // نسبة مئوية
+  isCompleted   Boolean  @default(false)
+  lastWatchedAt DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video         Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@map("video_views")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("favorites")
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String?
+  bookId    String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video?   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  book      Book?    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@map("bookmarks")
+}
+
+// ============================= المجتمع =============================
+
+model CommunityCategory {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  order       Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  posts       CommunityPost[]
+
+  @@map("community_categories")
+}
+
+model CommunityPost {
+  id         String             @id @default(cuid())
+  title      String
+  content    String
+  categoryId String
+  authorId   String
+  isPinned   Boolean            @default(false)
+  isDeleted  Boolean            @default(false)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  category   CommunityCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  author     User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments   CommunityComment[]
+
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id        String        @id @default(cuid())
+  content   String
+  postId    String
+  authorId  String
+  createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("community_comments")
+}
+
+// ============================= جلسات لايف =============================
+
+model LiveSession {
+  id              String                  @id @default(cuid())
+  title           String
+  description     String?
+  teacherId       String
+  courseId        String?
+  startAt         DateTime
+  durationMinutes Int                     @default(60)
+  url             String? // رابط البث
+  price           Decimal                 @default(0)
+  isFree          Boolean                 @default(false)
+  maxCapacity     Int                     @default(0) // 0 = بدون حد
+  createdAt       DateTime                @default(now())
+  teacher         Teacher                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  course          Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  bookings        SessionBooking[]
+  attendances     LiveSessionAttendance[]
+
+  @@map("live_sessions")
+}
+
+model SessionBooking {
+  id        String      @id @default(cuid())
+  userId    String
+  sessionId String
+  status    String      @default("booked") // booked | cancelled
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@map("session_bookings")
+}
+
+model LiveSessionAttendance {
+  id         String      @id @default(cuid())
+  userId     String
+  sessionId  String
+  attendedAt DateTime    @default(now())
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session    LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@map("live_session_attendances")
+}
+
+// ============================= خطة المذاكرة =============================
+
+model StudyPlanWeek {
+  id          String             @id @default(cuid())
+  title       String
+  description String?
+  order       Int                @default(0)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  subjects    StudyPlanSubject[]
+
+  @@map("study_plan_weeks")
+}
+
+model StudyPlanSubject {
+  id       String                   @id @default(cuid())
+  weekId   String
+  subject  String
+  tasks    Json // قائمة المهام
+  order    Int                      @default(0)
+  week     StudyPlanWeek            @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  finishes StudyPlanSubjectFinish[]
+
+  @@map("study_plan_subjects")
+}
+
+model StudyPlanSubjectFinish {
+  id         String           @id @default(cuid())
+  userId     String
+  subjectId  String
+  finishedAt DateTime         @default(now())
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject    StudyPlanSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subjectId])
+  @@map("study_plan_subject_finishes")
+}
+
+// ============================= النقاط والجوائز =============================
+
+model PointsTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int // +/-
+  reason    String
+  dedupKey  String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dedupKey])
+  @@map("points_transactions")
+}
+
+// ============================= الإشعارات وطلبات الإعفاء =============================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model ExemptionRequest {
+  id         String    @id @default(cuid())
+  userId     String
+  reason     String
+  details    String?
+  status     String    @default("pending") // pending | approved | rejected
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("exemption_requests")
+}
+
+// ============================= منافذ البيع =============================
+
+model StoreLocator {
+  id          String   @id @default(cuid())
+  name        String
+  governorate String
+  address     String
+  phone       String?
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("store_locators")
+}
+
+model StoreItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  pointsCost  Int
+  kind        String   @default("days") // days = إضافة أيام اشتراك
+  value       Int      @default(30)
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("store_items")
+}
+
+// ============================= الإعدادات =============================
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  purpose   String   @default("login") // login | reset | verify
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("otp_codes")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  phone     String
+  ip        String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@map("login_attempts")
+}
