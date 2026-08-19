@@ -7,7 +7,7 @@ import { Loader2, Lock, MessageSquareText, Phone, ShieldCheck } from "lucide-rea
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/field"
 import { Logo } from "@/components/ui/logo"
-import { sendOtpAction, verifyOtpAction } from "@/app/actions/auth"
+import { sendOtpAction, verifyOtpAction, directLoginAction } from "@/app/actions/auth"
 
 const OTP_LENGTH = 6
 
@@ -16,8 +16,10 @@ export function LoginForm() {
   const [step, setStep] = useState<"credentials" | "otp">("credentials")
   const [phone, setPhone] = useState("")
   const [otp, setOtp] = useState("")
+  const [password, setPassword] = useState("")
   const [countdown, setCountdown] = useState(0)
   const [devCode, setDevCode] = useState<string>()
+  const [skipping, setSkipping] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [state, formAction, pending] = useActionState(sendOtpAction, null)
@@ -53,6 +55,19 @@ export function LoginForm() {
       router.refresh()
     } else {
       alert(res.error)
+    }
+  }
+
+  async function handleSkip() {
+    if (!phone || !password) return
+    setSkipping(true)
+    const res = await directLoginAction(phone, password)
+    if (res.ok) {
+      router.push("/")
+      router.refresh()
+    } else {
+      alert(res.error)
+      setSkipping(false)
     }
   }
 
@@ -100,6 +115,8 @@ export function LoginForm() {
                 dir="ltr"
                 placeholder="••••••••"
                 className="pr-11 text-left"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
@@ -163,6 +180,17 @@ export function LoginForm() {
           <Button type="submit" size="lg" className="w-full" disabled={otp.length !== OTP_LENGTH}>
             <ShieldCheck className="h-5 w-5" />
             تأكيد الدخول
+          </Button>
+
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            className="w-full"
+            disabled={skipping}
+            onClick={handleSkip}
+          >
+            {skipping ? <Loader2 className="h-5 w-5 animate-spin" /> : "تجاوز التحقق"}
           </Button>
 
           <p className="text-center text-sm text-slate-500">

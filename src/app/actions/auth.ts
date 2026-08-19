@@ -64,6 +64,30 @@ export async function verifyOtpAction(
   return { ok: true }
 }
 
+export async function directLoginAction(phone: string, password: string): Promise<VerifyOtpResult> {
+  const normalized = phone.replace(/[^0-9+]/g, "")
+  const user = await prisma.user.findUnique({ where: { phone: normalized } })
+  if (!user) return { ok: false, error: "رقم الهاتف غير مسجل" }
+  if (user.isBlocked) return { ok: false, error: "الحساب محظور" }
+  if (!user.isActive) return { ok: false, error: "الحساب غير مفعل" }
+
+  const valid = await (await import("@/lib/auth")).verifyPassword(password, user.password)
+  if (!valid) return { ok: false, error: "كلمة المرور غير صحيحة" }
+
+  const token = await (await import("@/lib/auth")).createSession(user.id)
+
+  const cookieStore = await cookies()
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60,
+  })
+
+  return { ok: true }
+}
+
 export async function logoutAction() {
   await doLogout()
   redirect("/")

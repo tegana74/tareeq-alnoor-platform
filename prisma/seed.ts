@@ -1,30 +1,34 @@
 import "dotenv/config"
 import { PrismaClient } from "../src/generated/prisma/client"
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3"
+import { PrismaPg } from "@prisma/adapter-pg"
 import bcrypt from "bcryptjs"
 
-const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! })
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log("بدء التهيئة...")
 
   // ===== المستخدمون =====
-  const adminPassword = await bcrypt.hash("admin123", 10)
+  const adminPassword = await bcrypt.hash("@#hussian74", 10)
 
-  const admin = await prisma.user.upsert({
-    where: { phone: "01000000000" },
-    update: {},
-    create: {
-      phone: "01000000000",
-      password: adminPassword,
-      firstName: "مدير",
-      middleName: "",
-      lastName: "المنصة",
-      role: "ADMIN",
-      email: "admin@tareeqelnoor.com",
-    },
-  })
+  const existingAdmin = await prisma.user.findFirst({ where: { role: "ADMIN" } })
+  const admin = existingAdmin
+    ? await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: { phone: "01116544383", password: adminPassword },
+      })
+    : await prisma.user.create({
+        data: {
+          phone: "01116544383",
+          password: adminPassword,
+          firstName: "مدير",
+          middleName: "",
+          lastName: "المنصة",
+          role: "ADMIN",
+          email: "admin@tareeqelnoor.com",
+        },
+      })
   console.log("أدمن:", admin.phone)
 
   // ===== السنوات =====
