@@ -6,9 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "provider"
+  provider = "postgresql"
 }
-
 // ============================= المستخدمون والأدوار =============================
 
 enum Role {
