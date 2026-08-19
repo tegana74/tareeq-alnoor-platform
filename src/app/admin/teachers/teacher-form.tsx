@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowDown, ArrowUp, ImageOff, Loader2, Plus, Save, Star, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Ban, CheckCircle, ImageOff, Loader2, Plus, Save, Star } from "lucide-react"
 import {
   createTeacherAction,
   moveTeacherAction,
@@ -136,12 +136,13 @@ export function TeacherActions({
           <button
             type="submit"
             disabled={block.pending}
-            title={blocked ? "إعادة تفعيل" : "إزالة المعلم (حظر الحساب)"}
-            className={`flex h-9 w-9 items-center justify-center rounded-xl disabled:opacity-50 ${
+            title={blocked ? "إعادة تفعيل الحساب" : "حظر الحساب"}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
               blocked ? "bg-mint-50 text-mint-dark hover:bg-mint-100" : "bg-rose-50 text-rose-600 hover:bg-rose-100"
             }`}
           >
-            <Trash2 className="h-4 w-4" />
+            {blocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+            {blocked ? "إعادة تفعيل" : "حظر"}
           </button>
         </form>
       )}
