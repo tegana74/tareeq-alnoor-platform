@@ -1,13 +1,20 @@
 import { NextResponse, NextRequest } from "next/server"
 import { randomUUID } from "crypto"
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import { getCurrentUser } from "@/lib/auth"
+import { uploadToR2 } from "@/lib/r2"
 
-const MAX_VIDEO = 500 * 1024 * 1024 // 500MB
-const MAX_FILE = 25 * 1024 * 1024 // 25MB
+const MAX_VIDEO = 500 * 1024 * 1024
+const MAX_FILE = 25 * 1024 * 1024
 const ALLOWED_FILES = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"])
 const ALLOWED_VIDEO = new Set([".mp4", ".webm", ".mov", ".mkv", ".ogv", ".avi"])
+
+const MIME: Record<string, string> = {
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+  ".webp": "image/webp", ".gif": "image/gif", ".pdf": "application/pdf",
+  ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+  ".mkv": "video/x-matroska", ".ogv": "video/ogg", ".avi": "video/x-msvideo",
+}
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser()
@@ -36,11 +43,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "نوع الملف غير مدعوم" }, { status: 400 })
   }
 
-  const uploadDir = path.join(process.cwd(), "data", "uploads")
-  await mkdir(uploadDir, { recursive: true })
   const filename = `${randomUUID()}${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
-  await writeFile(path.join(uploadDir, filename), buffer)
+  const contentType = MIME[ext] ?? "application/octet-stream"
 
-  return NextResponse.json({ url: `/api/files/${filename}` })
+  try {
+    await uploadToR2(filename, buffer, contentType)
+    return NextResponse.json({ url: `/api/files/${filename}` })
+  } catch (e) {
+    return NextResponse.json({ error: "فشل رفع الملف" + (e instanceof Error ? `: ${e.message}` : "") }, { status: 500 })
+  }
 }

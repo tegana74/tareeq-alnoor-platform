@@ -1,26 +1,14 @@
 import { NextRequest } from "next/server"
-import { stat } from "fs/promises"
-import { createReadStream } from "fs"
-import path from "path"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
-
-const STORAGE = path.join(process.cwd(), "data", "uploads")
+import { headR2, getR2Object } from "@/lib/r2"
 
 const MIME: Record<string, string> = {
-  ".mp4": "video/mp4",
-  ".webm": "video/webm",
-  ".mov": "video/quicktime",
-  ".mkv": "video/x-matroska",
-  ".ogv": "video/ogg",
-  ".avi": "video/x-msvideo",
-  ".pdf": "application/pdf",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
+  ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+  ".mkv": "video/x-matroska", ".ogv": "video/ogg", ".avi": "video/x-msvideo",
+  ".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif",
 }
 
 async function resolveAccess(
@@ -63,57 +51,33 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ filenam
     return new Response("التنزيل غير متاح لهذا الملف", { status: 403 })
   }
 
-  const filePath = path.join(STORAGE, filename)
-  let size: number
-  try {
-    size = (await stat(filePath)).size
-  } catch {
-    return new Response("غير موجود", { status: 404 })
-  }
+  const head = await headR2(filename)
+  if (!head) return new Response("غير موجود", { status: 404 })
 
-  const ext = path.extname(filename).toLowerCase()
-  const contentType = MIME[ext] ?? "application/octet-stream"
+  const ext = `.${filename.split(".").pop()}`
+  const contentType = head.contentType || MIME[ext] || "application/octet-stream"
   const disposition = wantDownload ? "attachment" : "inline"
 
-  const range = request.headers.get("range")
-  if (range) {
-    const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim())
-    if (m) {
-      let start = m[1] ? parseInt(m[1], 10) : 0
-      let end = m[2] ? parseInt(m[2], 10) : size - 1
-      if (isNaN(start)) start = 0
-      if (isNaN(end) || end >= size) end = size - 1
-      if (start > end || start >= size) {
-        return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } })
-      }
-      const stream = createReadStream(filePath, { start, end })
-      return new Response(stream as unknown as BodyInit, {
-        status: 206,
-        headers: {
-          "Content-Type": contentType,
-          "Content-Length": String(end - start + 1),
-          "Content-Range": `bytes ${start}-${end}/${size}`,
-          "Accept-Ranges": "bytes",
-          "Content-Disposition": `${disposition}; filename="${filename}"`,
-          "Cache-Control": "private, no-store",
-          "X-Content-Type-Options": "nosniff",
-        },
-      })
-    }
-  }
+  try {
+    const obj = await getR2Object(filename)
+    const body = obj.Body
+    if (!body) return new Response("غير موجود", { status: 404 })
 
-  const stream = createReadStream(filePath)
-  return new Response(stream as unknown as BodyInit, {
-    status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Content-Length": String(size),
-      "Accept-Ranges": "bytes",
-      "Content-Disposition": `${disposition}; filename="${filename}"`,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  })
+    const webStream = body.transformToWebStream()
+    return new Response(webStream, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(head.size),
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    })
+  } catch {
+    return new Response("خطأ في جلب الملف", { status: 500 })
+  }
 }
 
 export async function HEAD(request: NextRequest, ctx: { params: Promise<{ filename: string }> }) {
