@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
-import { Loader2, Lock, ShieldCheck } from "lucide-react"
+import { Loader2, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -13,42 +13,30 @@ export function ChangePasswordForm() {
   return (
     <form action={formAction} className="space-y-4">
       <Field label="كلمة المرور الحالية" required>
-        <div className="relative">
-          <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <PasswordInput
-            name="currentPassword"
-            dir="ltr"
-            placeholder="••••••••"
-            className="pr-11"
-            required
-          />
-        </div>
+        <PasswordInput
+          name="currentPassword"
+          dir="ltr"
+          placeholder="••••••••"
+          required
+        />
       </Field>
 
       <Field label="كلمة المرور الجديدة" required>
-        <div className="relative">
-          <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <PasswordInput
-            name="newPassword"
-            dir="ltr"
-            placeholder="6 أحرف على الأقل"
-            className="pr-11"
-            required
-          />
-        </div>
+        <PasswordInput
+          name="newPassword"
+          dir="ltr"
+          placeholder="6 أحرف على الأقل"
+          required
+        />
       </Field>
 
       <Field label="تأكيد كلمة المرور الجديدة" required>
-        <div className="relative">
-          <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <PasswordInput
-            name="confirmPassword"
-            dir="ltr"
-            placeholder="أعد إدخال كلمة المرور"
-            className="pr-11"
-            required
-          />
-        </div>
+        <PasswordInput
+          name="confirmPassword"
+          dir="ltr"
+          placeholder="أعد إدخال كلمة المرور"
+          required
+        />
       </Field>
 
       {state && state.ok && (

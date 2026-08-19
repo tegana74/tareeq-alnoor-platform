@@ -1,17 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Lock } from "lucide-react"
 import { Input } from "./field"
 
 export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const [visible, setVisible] = useState(false)
   return (
     <div className="relative">
+      <Lock className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
       <Input
         {...props}
         type={visible ? "text" : "password"}
-        className={`pr-11 text-left ${props.className ?? ""}`}
+        className={`pr-9 pl-9 text-left ${props.className ?? ""}`}
       />
       <button
         type="button"

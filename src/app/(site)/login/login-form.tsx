@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Lock, LogIn, Phone } from "lucide-react"
+import { Loader2, LogIn, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/field"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -61,18 +61,14 @@ export function LoginForm() {
         </Field>
 
         <Field label="كلمة المرور" required>
-          <div className="relative">
-            <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <PasswordInput
-              name="password"
-              dir="ltr"
-              placeholder="••••••••"
-              className="pr-11"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          <PasswordInput
+            name="password"
+            dir="ltr"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </Field>
 
         {error && (

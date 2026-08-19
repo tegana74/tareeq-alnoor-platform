@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Lock, MessageSquareText, Phone, ShieldCheck } from "lucide-react"
+import { Loader2, MessageSquareText, Phone, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/field"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -179,31 +179,23 @@ export default function ForgotPasswordPage() {
       {step === "newPassword" && (
         <form onSubmit={handleResetPassword} className="space-y-5 rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/60">
           <Field label="كلمة المرور الجديدة" required>
-            <div className="relative">
-              <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <PasswordInput
-                dir="ltr"
-                placeholder="6 أحرف على الأقل"
-                className="pr-11"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
-            </div>
+            <PasswordInput
+              dir="ltr"
+              placeholder="6 أحرف على الأقل"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
           </Field>
 
           <Field label="تأكيد كلمة المرور" required>
-            <div className="relative">
-              <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <PasswordInput
-                dir="ltr"
-                placeholder="أعد إدخال كلمة المرور"
-                className="pr-11"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
+            <PasswordInput
+              dir="ltr"
+              placeholder="أعد إدخال كلمة المرور"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </Field>
 
           {error && (
