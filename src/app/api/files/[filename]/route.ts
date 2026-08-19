@@ -2,7 +2,7 @@ import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
-import { headR2, getR2Object } from "@/lib/r2"
+import { getSupabaseFile, getSupabasePublicUrl } from "@/lib/storage"
 
 const MIME: Record<string, string> = {
   ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
@@ -51,33 +51,23 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ filenam
     return new Response("التنزيل غير متاح لهذا الملف", { status: 403 })
   }
 
-  const head = await headR2(filename)
-  if (!head) return new Response("غير موجود", { status: 404 })
+  const file = await getSupabaseFile(filename)
+  if (!file) return new Response("غير موجود", { status: 404 })
 
   const ext = `.${filename.split(".").pop()}`
-  const contentType = head.contentType || MIME[ext] || "application/octet-stream"
+  const contentType = file.contentType || MIME[ext] || "application/octet-stream"
   const disposition = wantDownload ? "attachment" : "inline"
 
-  try {
-    const obj = await getR2Object(filename)
-    const body = obj.Body
-    if (!body) return new Response("غير موجود", { status: 404 })
-
-    const webStream = body.transformToWebStream()
-    return new Response(webStream, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(head.size),
-        "Accept-Ranges": "bytes",
-        "Content-Disposition": `${disposition}; filename="${filename}"`,
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    })
-  } catch {
-    return new Response("خطأ في جلب الملف", { status: 500 })
-  }
+  return new Response(new Uint8Array(file.buffer), {
+    status: 200,
+    headers: {
+      "Content-Type": contentType,
+      "Content-Length": String(file.buffer.length),
+      "Content-Disposition": `${disposition}; filename="${filename}"`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  })
 }
 
 export async function HEAD(request: NextRequest, ctx: { params: Promise<{ filename: string }> }) {

@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { randomUUID } from "crypto"
 import path from "path"
 import { getCurrentUser } from "@/lib/auth"
-import { uploadToR2 } from "@/lib/r2"
+import { uploadToSupabase } from "@/lib/storage"
 
 const MAX_VIDEO = 500 * 1024 * 1024
 const MAX_FILE = 25 * 1024 * 1024
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   const contentType = MIME[ext] ?? "application/octet-stream"
 
   try {
-    await uploadToR2(filename, buffer, contentType)
+    await uploadToSupabase(filename, buffer, contentType)
     return NextResponse.json({ url: `/api/files/${filename}` })
   } catch (e) {
     return NextResponse.json({ error: "فشل رفع الملف" + (e instanceof Error ? `: ${e.message}` : "") }, { status: 500 })
