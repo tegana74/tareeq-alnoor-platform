@@ -70,6 +70,7 @@ export default async function AdminTeachersPage() {
                 hasUser={!!t.user}
                 blocked={t.user?.isBlocked ?? false}
                 featured={t.isFeatured}
+                name={t.name}
               />
             </div>
           ))}

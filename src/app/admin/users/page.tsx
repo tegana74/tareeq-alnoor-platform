@@ -60,7 +60,7 @@ export default async function AdminUsersPage() {
                 {u.isBlocked ? "محظور" : "نشط"}
               </span>
               <GrantCourseButton studentId={u.id} studentName={u.firstName} courses={courseOptions} />
-              <StudentActions id={u.id} blocked={u.isBlocked} />
+              <StudentActions id={u.id} blocked={u.isBlocked} name={`${u.firstName} ${u.lastName}`} />
             </div>
           ))}
         </div>

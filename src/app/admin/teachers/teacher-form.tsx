@@ -1,12 +1,14 @@
 "use client"
 
-import { ArrowDown, ArrowUp, Ban, CheckCircle, ImageOff, Loader2, Plus, Save, Star } from "lucide-react"
+import { useState } from "react"
+import { ArrowDown, ArrowUp, Ban, CheckCircle, ImageOff, Loader2, Plus, Save, Star, Trash2 } from "lucide-react"
 import {
   createTeacherAction,
   moveTeacherAction,
   toggleTeacherBlockAction,
   toggleTeacherFeaturedAction,
   updateTeacherImageAction,
+  deleteTeacherAction,
 } from "@/app/actions/admin-users"
 import { useSubmit } from "@/lib/use-submit"
 
@@ -74,17 +76,22 @@ export function TeacherActions({
   hasUser,
   blocked,
   featured,
+  name,
 }: {
   id: string
   hasUser: boolean
   blocked: boolean
   featured: boolean
+  name: string
 }) {
   const block = useSubmit(toggleTeacherBlockAction)
   const feat = useSubmit(toggleTeacherFeaturedAction)
   const up = useSubmit(moveTeacherAction)
   const down = useSubmit(moveTeacherAction)
   const removeImg = useSubmit(updateTeacherImageAction)
+  const del = useSubmit(deleteTeacherAction)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   const moveBtn =
     "flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-30"
   return (
@@ -145,6 +152,37 @@ export function TeacherActions({
             {blocked ? "إعادة تفعيل" : "حظر"}
           </button>
         </form>
+      )}
+
+      {confirmDelete ? (
+        <span className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2 py-1">
+          <span className="text-[10px] font-bold text-rose-600">حذف {name}؟</span>
+          <form action={del.formAction}>
+            <input type="hidden" name="id" value={id} />
+            <button
+              type="submit"
+              disabled={del.pending}
+              className="rounded-lg bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700"
+            >
+              {del.pending ? <Loader2 className="h-3 w-3 animate-spin" /> : "تأكيد"}
+            </button>
+          </form>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            className="rounded-lg bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 hover:bg-slate-300"
+          >
+            إلغاء
+          </button>
+        </span>
+      ) : (
+        <button
+          onClick={() => setConfirmDelete(true)}
+          title="حذف نهائي من المنصة"
+          className="flex items-center gap-1 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100"
+        >
+          <Trash2 className="h-4 w-4" />
+          حذف
+        </button>
       )}
     </span>
   )

@@ -1,7 +1,8 @@
 "use client"
 
-import { Loader2, Plus, Save, Ban, CheckCircle } from "lucide-react"
-import { createStudentAction, toggleStudentBlockAction } from "@/app/actions/admin-users"
+import { useState } from "react"
+import { Loader2, Plus, Save, Ban, CheckCircle, Trash2 } from "lucide-react"
+import { createStudentAction, toggleStudentBlockAction, deleteStudentAction } from "@/app/actions/admin-users"
 import { useSubmit } from "@/lib/use-submit"
 
 const inputCls =
@@ -60,22 +61,58 @@ export function StudentForm({ years }: { years: { id: string; name: string }[] }
   )
 }
 
-export function StudentActions({ id, blocked }: { id: string; blocked: boolean }) {
-  const { formAction, pending } = useSubmit(toggleStudentBlockAction)
+export function StudentActions({ id, blocked, name }: { id: string; blocked: boolean; name: string }) {
+  const block = useSubmit(toggleStudentBlockAction)
+  const del = useSubmit(deleteStudentAction)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   return (
-    <form action={formAction}>
-      <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
-        disabled={pending}
-        title={blocked ? "إعادة تفعيل الحساب" : "حظر الحساب"}
-        className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
-          blocked ? "bg-mint-50 text-mint-dark hover:bg-mint-100" : "bg-rose-50 text-rose-600 hover:bg-rose-100"
-        }`}
-      >
-        {blocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-        {blocked ? "إعادة تفعيل" : "حظر"}
-      </button>
-    </form>
+    <span className="flex items-center gap-1.5">
+      <form action={block.formAction}>
+        <input type="hidden" name="id" value={id} />
+        <button
+          type="submit"
+          disabled={block.pending}
+          title={blocked ? "إعادة تفعيل الحساب" : "حظر الحساب"}
+          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
+            blocked ? "bg-mint-50 text-mint-dark hover:bg-mint-100" : "bg-rose-50 text-rose-600 hover:bg-rose-100"
+          }`}
+        >
+          {blocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+          {blocked ? "إعادة تفعيل" : "حظر"}
+        </button>
+      </form>
+
+      {confirmDelete ? (
+        <span className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2 py-1">
+          <span className="text-[10px] font-bold text-rose-600">حذف {name}؟</span>
+          <form action={del.formAction}>
+            <input type="hidden" name="id" value={id} />
+            <button
+              type="submit"
+              disabled={del.pending}
+              className="rounded-lg bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700"
+            >
+              {del.pending ? <Loader2 className="h-3 w-3 animate-spin" /> : "تأكيد"}
+            </button>
+          </form>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            className="rounded-lg bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 hover:bg-slate-300"
+          >
+            إلغاء
+          </button>
+        </span>
+      ) : (
+        <button
+          onClick={() => setConfirmDelete(true)}
+          title="حذف نهائي من المنصة"
+          className="flex items-center gap-1 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100"
+        >
+          <Trash2 className="h-4 w-4" />
+          حذف
+        </button>
+      )}
+    </span>
   )
 }

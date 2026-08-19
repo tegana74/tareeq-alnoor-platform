@@ -196,6 +196,43 @@ export async function toggleStudentBlockAction(_prev: unknown, formData: FormDat
   return { ok: true }
 }
 
+export async function deleteStudentAction(_prev: unknown, formData: FormData): Promise<AdminUsersResult> {
+  const user = await getCurrentUser()
+  if (!user || user.role !== "ADMIN") return { ok: false, error: "غير مسموح" }
+  const id = String(formData.get("id") ?? "")
+  const target = await prisma.user.findUnique({ where: { id } })
+  if (!target || target.role !== "STUDENT") return { ok: false, error: "غير موجود" }
+
+  await prisma.session.deleteMany({ where: { userId: id } })
+  await prisma.user.delete({ where: { id } })
+  return { ok: true }
+}
+
+export async function deleteTeacherAction(_prev: unknown, formData: FormData): Promise<AdminUsersResult> {
+  const user = await getCurrentUser()
+  if (!user || user.role !== "ADMIN") return { ok: false, error: "غير مسموح" }
+  const id = String(formData.get("id") ?? "")
+  const teacher = await prisma.teacher.findUnique({ where: { id }, include: { user: true } })
+  if (!teacher) return { ok: false, error: "غير موجود" }
+
+  if (teacher.user) {
+    await prisma.session.deleteMany({ where: { userId: teacher.user.id } })
+  }
+
+  const courses = await prisma.course.findMany({ where: { teacherId: id } })
+  for (const course of courses) {
+    await prisma.section.deleteMany({ where: { courseId: course.id } })
+  }
+  await prisma.course.deleteMany({ where: { teacherId: id } })
+  await prisma.liveSession.deleteMany({ where: { teacherId: id } })
+
+  if (teacher.user) {
+    await prisma.user.delete({ where: { id: teacher.user.id } })
+  }
+  await prisma.teacher.delete({ where: { id } })
+  return { ok: true }
+}
+
 export async function grantCourseAction(_prev: unknown, formData: FormData): Promise<AdminUsersResult> {
   const user = await getCurrentUser()
   if (!user || user.role !== "ADMIN") return { ok: false, error: "غير مسموح" }
