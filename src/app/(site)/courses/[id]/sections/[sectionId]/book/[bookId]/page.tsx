@@ -8,6 +8,7 @@ import { canAccessCourse } from "@/lib/subscriptions"
 import { Button } from "@/components/ui/button"
 import { ExamType } from "@/generated/prisma/enums"
 import { BookmarkButton } from "@/components/bookmark-button"
+import { resolveFileUrl } from "@/lib/resolve-file-url"
 
 interface BookPageProps {
   params: Promise<{ id: string; sectionId: string; bookId: string }>
@@ -58,6 +59,7 @@ export default async function BookPage({ params }: BookPageProps) {
   }
 
   const isUploaded = book.fileUrl.startsWith("/api/files/") || book.fileUrl.includes("supabase")
+  const fileUrl = resolveFileUrl(book.fileUrl)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -77,7 +79,7 @@ export default async function BookPage({ params }: BookPageProps) {
         <div>
           {isUploaded && !book.type.includes("AUDIO") ? (
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
-              <iframe src={book.fileUrl} title={book.title} className="h-[85vh] w-full" />
+              <iframe src={fileUrl} title={book.title} className="h-[85vh] w-full" />
             </div>
           ) : (
             <div className="flex flex-col items-center rounded-3xl border border-slate-200 bg-white p-10 text-center">
@@ -98,7 +100,7 @@ export default async function BookPage({ params }: BookPageProps) {
               {book.description && <p className="mt-4 max-w-lg leading-8 text-slate-600">{book.description}</p>}
               {book.downloadAllowed && (
                 <Button
-                  href={isUploaded ? `${book.fileUrl}?dl=1` : book.fileUrl}
+                  href={isUploaded ? `${fileUrl}?dl=1` : fileUrl}
                   variant="mint"
                   size="lg"
                   className="mt-6"
@@ -114,12 +116,12 @@ export default async function BookPage({ params }: BookPageProps) {
             <div className="flex shrink-0 items-center gap-2">
               {user?.role === "STUDENT" && <BookmarkButton bookId={book.id} initial={bookmarked} />}
               {book.downloadAllowed ? (
-                isUploaded ? (
-                  <a href={`${book.fileUrl}?dl=1`} className="flex items-center gap-1 hover:underline">
+                  isUploaded ? (
+                  <a href={`${fileUrl}?dl=1`} className="flex items-center gap-1 hover:underline">
                     <Download className="h-4 w-4" /> تنزيل الملف
                   </a>
                 ) : (
-                  <a href={book.fileUrl} className="flex items-center gap-1 hover:underline">
+                  <a href={fileUrl} className="flex items-center gap-1 hover:underline">
                     <Download className="h-4 w-4" /> فتح الملف
                   </a>
                 )

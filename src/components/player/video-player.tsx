@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { getVideoEmbedUrl, isEmbeddableProvider } from "@/lib/video"
+import { resolveFileUrl } from "@/lib/resolve-file-url"
 import { Button } from "@/components/ui/button"
 
 interface VideoPlayerProps {
@@ -15,6 +16,7 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, userName }: VideoPlayerProps) {
+  const resolvedUrl = resolveFileUrl(url)
   const [progress, setProgress] = useState(0)
   const [saving, setSaving] = useState(false)
   const savedRef = useRef(false)
@@ -51,7 +53,7 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
       <div>
         <div className="overflow-hidden rounded-2xl bg-black shadow-xl">
           <iframe
-            src={getVideoEmbedUrl(providerTyped, url)}
+            src={getVideoEmbedUrl(providerTyped, resolvedUrl)}
             className="aspect-video w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -104,7 +106,7 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
           }}
           onEnded={() => saveProgress(100, true)}
         >
-          <source src={url} />
+          <source src={resolvedUrl} />
         </video>
         {isUploaded && userName && (
           <span className="pointer-events-none absolute bottom-2 left-2 select-none rounded bg-black/30 px-2 py-0.5 text-xs text-white/40">
@@ -121,7 +123,7 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
             </span>
           )}
           {downloadAllowed && (
-            <a href={`${url}?dl=1`} className="rounded-lg bg-mint px-3 py-1.5 text-xs font-black text-mint-dark hover:opacity-80">
+            <a href={`${resolvedUrl}?dl=1`} className="rounded-lg bg-mint px-3 py-1.5 text-xs font-black text-mint-dark hover:opacity-80">
               تنزيل الفيديو
             </a>
           )}

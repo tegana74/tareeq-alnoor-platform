@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { prisma } from "@/lib/prisma"
 import { formatDateTime, formatPrice } from "@/lib/utils"
+import { resolveFileUrl } from "@/lib/resolve-file-url"
 import { ReviewButtons } from "./review-buttons"
 
 export const metadata: Metadata = { title: "الدفعات | لوحة الإدارة" }
@@ -67,7 +68,7 @@ export default async function AdminPaymentsPage() {
         <div className="mt-3">
           <p className="mb-1 text-xs font-bold text-slate-500">إثبات الدفع:</p>
           <a
-            href={inv.proofImage}
+            href={resolveFileUrl(inv.proofImage)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-royal transition-colors hover:bg-royal-50"
