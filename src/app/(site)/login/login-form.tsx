@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Loader2, Lock, LogIn, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/field"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Logo } from "@/components/ui/logo"
 import { directLoginAction } from "@/app/actions/auth"
 
@@ -62,12 +63,11 @@ export function LoginForm() {
         <Field label="كلمة المرور" required>
           <div className="relative">
             <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
+            <PasswordInput
               name="password"
-              type="password"
               dir="ltr"
               placeholder="••••••••"
-              className="pr-11 text-left"
+              className="pr-11"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

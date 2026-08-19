@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Loader2, Lock, MessageSquareText, Phone, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/field"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Logo } from "@/components/ui/logo"
 import { sendResetOtpAction, resetPasswordAction } from "@/app/actions/auth"
 
@@ -180,11 +181,10 @@ export default function ForgotPasswordPage() {
           <Field label="كلمة المرور الجديدة" required>
             <div className="relative">
               <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="password"
+              <PasswordInput
                 dir="ltr"
                 placeholder="6 أحرف على الأقل"
-                className="pr-11 text-left"
+                className="pr-11"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
@@ -195,11 +195,10 @@ export default function ForgotPasswordPage() {
           <Field label="تأكيد كلمة المرور" required>
             <div className="relative">
               <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="password"
+              <PasswordInput
                 dir="ltr"
                 placeholder="أعد إدخال كلمة المرور"
-                className="pr-11 text-left"
+                className="pr-11"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

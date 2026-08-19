@@ -3,7 +3,8 @@
 import { useActionState } from "react"
 import { Loader2, Lock, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Field, Input } from "@/components/ui/field"
+import { Field } from "@/components/ui/field"
+import { PasswordInput } from "@/components/ui/password-input"
 import { changePasswordAction } from "@/app/actions/auth"
 
 export function ChangePasswordForm() {
@@ -14,12 +15,11 @@ export function ChangePasswordForm() {
       <Field label="كلمة المرور الحالية" required>
         <div className="relative">
           <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
+          <PasswordInput
             name="currentPassword"
-            type="password"
             dir="ltr"
             placeholder="••••••••"
-            className="pr-11 text-left"
+            className="pr-11"
             required
           />
         </div>
@@ -28,12 +28,11 @@ export function ChangePasswordForm() {
       <Field label="كلمة المرور الجديدة" required>
         <div className="relative">
           <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
+          <PasswordInput
             name="newPassword"
-            type="password"
             dir="ltr"
             placeholder="6 أحرف على الأقل"
-            className="pr-11 text-left"
+            className="pr-11"
             required
           />
         </div>
@@ -42,12 +41,11 @@ export function ChangePasswordForm() {
       <Field label="تأكيد كلمة المرور الجديدة" required>
         <div className="relative">
           <Lock className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
+          <PasswordInput
             name="confirmPassword"
-            type="password"
             dir="ltr"
             placeholder="أعد إدخال كلمة المرور"
-            className="pr-11 text-left"
+            className="pr-11"
             required
           />
         </div>

@@ -11,6 +11,7 @@ import {
   deleteTeacherAction,
 } from "@/app/actions/admin-users"
 import { useSubmit } from "@/lib/use-submit"
+import { PasswordInput } from "@/components/ui/password-input"
 
 const inputCls =
   "w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-bold text-navy outline-none focus:border-amber-400"
@@ -37,7 +38,7 @@ export function TeacherForm({ unlinked }: { unlinked: { id: string; name: string
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <input name="phone" dir="ltr" required placeholder="رقم الهاتف 01xxxxxxxxx" className={`${inputCls} text-left`} />
-        <input name="password" type="password" required placeholder="كلمة المرور" className={inputCls} />
+        <PasswordInput name="password" required placeholder="كلمة المرور" />
       </div>
       <input name="bio" placeholder="نبذة مختصرة (اختياري)" className={inputCls} />
       {unlinked.length > 0 && (

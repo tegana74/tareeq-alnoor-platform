@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Loader2, Plus, Save, Ban, CheckCircle, Trash2 } from "lucide-react"
 import { createStudentAction, toggleStudentBlockAction, deleteStudentAction } from "@/app/actions/admin-users"
 import { useSubmit } from "@/lib/use-submit"
+import { PasswordInput } from "@/components/ui/password-input"
 
 const inputCls =
   "w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-bold text-navy outline-none focus:border-amber-400"
@@ -30,7 +31,7 @@ export function StudentForm({ years }: { years: { id: string; name: string }[] }
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         <input name="phone" dir="ltr" required placeholder="رقم الهاتف 01xxxxxxxxx" className={`${inputCls} text-left`} />
-        <input name="password" type="password" required placeholder="كلمة المرور" className={inputCls} />
+        <PasswordInput name="password" required placeholder="كلمة المرور" />
         <select name="yearId" className={inputCls} defaultValue="">
           <option value="">بدون سنة</option>
           {years.map((y) => (

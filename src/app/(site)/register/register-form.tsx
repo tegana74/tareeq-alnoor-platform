@@ -6,6 +6,7 @@ import Link from "next/link"
 import { GraduationCap, Loader2, UserPlus, UsersRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Logo } from "@/components/ui/logo"
 import { registerAction } from "@/app/actions/auth"
 
@@ -68,10 +69,10 @@ export function RegisterForm({ years }: RegisterFormProps) {
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="كلمة المرور" required>
-            <Input name="password" type="password" dir="ltr" placeholder="••••••••" className="text-left" required />
+            <PasswordInput name="password" dir="ltr" placeholder="••••••••" required />
           </Field>
           <Field label="إعادة كلمة المرور" required>
-            <Input name="confirmPassword" type="password" dir="ltr" placeholder="••••••••" className="text-left" required />
+            <PasswordInput name="confirmPassword" dir="ltr" placeholder="••••••••" required />
           </Field>
         </div>
 
