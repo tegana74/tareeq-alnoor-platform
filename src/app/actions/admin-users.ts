@@ -115,7 +115,7 @@ export async function updateTeacherImageAction(_prev: unknown, formData: FormDat
   if (!user || user.role !== "ADMIN") return { ok: false, error: "غير مسموح" }
   const id = String(formData.get("id") ?? "")
   const image = String(formData.get("image") ?? "").trim()
-  if (image && !image.startsWith("/api/files/")) return { ok: false, error: "رابط صورة غير صالح" }
+  if (image && !image.startsWith("/api/files/") && !image.includes("supabase")) return { ok: false, error: "رابط صورة غير صالح" }
 
   const teacher = await prisma.teacher.findUnique({ where: { id } })
   if (!teacher) return { ok: false, error: "غير موجود" }
