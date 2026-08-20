@@ -1,13 +1,22 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Cairo } from "next/font/google"
 import "./globals.css"
 import { APP_DESCRIPTION, APP_NAME, OG_IMAGE, SITE_URL } from "@/lib/constants"
+import { PwaRegistrar } from "@/components/pwa-registrar"
 
 const cairo = Cairo({
   variable: "--font-cairo",
   subsets: ["arabic", "latin"],
   display: "swap",
 })
+
+export const viewport: Viewport = {
+  themeColor: "#f59e0b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+}
 
 export const metadata: Metadata = {
   title: {
@@ -26,8 +35,21 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL(SITE_URL),
   icons: {
-    icon: "/favicon.svg",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192x192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/icons/icon-512x512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/icons/icon-152x152.svg", sizes: "152x152", type: "image/svg+xml" },
+      { url: "/icons/icon-192x192.svg", sizes: "192x192", type: "image/svg+xml" },
+    ],
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
   },
   openGraph: {
     title: "منصة طريق النور التعليمية | الشرح الأفضل للمناهج الدراسية",
@@ -83,7 +105,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <PwaRegistrar />
+        {children}
+      </body>
     </html>
   )
 }
