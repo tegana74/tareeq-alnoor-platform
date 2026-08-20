@@ -1,6 +1,6 @@
-const CACHE_NAME = "tareeq-alnoor-v1"
-const STATIC_CACHE = "tareeq-static-v1"
-const DYNAMIC_CACHE = "tareeq-dynamic-v1"
+const CACHE_NAME = "tareeq-alnoor-v2"
+const STATIC_CACHE = "tareeq-static-v2"
+const DYNAMIC_CACHE = "tareeq-dynamic-v2"
 
 const STATIC_ASSETS = [
   "/",
@@ -10,9 +10,9 @@ const STATIC_ASSETS = [
   "/results",
   "/store",
   "/manifest.json",
-  "/favicon.svg",
-  "/icons/icon-192x192.svg",
-  "/icons/icon-512x512.svg",
+  "/favicon.ico",
+  "/icons/icon-192x192.png",
+  "/icons/icon-512x512.png",
 ]
 
 self.addEventListener("install", (event) => {
