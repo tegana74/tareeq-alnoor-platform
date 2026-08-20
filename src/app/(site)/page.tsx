@@ -122,6 +122,7 @@ export default async function Home() {
     <div className="overflow-hidden">
       {/* ===== Hero ===== */}
       <section className="relative">
+        <div className="absolute top-1/2 left-1/2 -z-10 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/10 blur-[100px]" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
           <div className="space-y-8 animate-fade-up">
             <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-sm font-bold text-amber-700">
@@ -163,7 +164,7 @@ export default async function Home() {
           <div className="relative hidden lg:block">
             <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-br from-amber-200 via-amber-100 to-white blur-2xl" />
             <div className="relative mx-auto max-w-md space-y-4">
-              <div className="rounded-3xl border border-amber-200 bg-white p-6 shadow-2xl shadow-amber-500/10">
+              <div className="rounded-3xl border border-amber-200 bg-white p-6 shadow-2xl shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-amber-500/20">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm font-bold text-slate-500">محتوى الكورس</span>
                   <span className="rounded-full bg-mint-50 px-3 py-1 text-xs font-bold text-mint">
@@ -192,7 +193,7 @@ export default async function Home() {
                 )}
               </div>
 
-              <div className="mr-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+              <div className="mr-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-amber-500/10">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-navy">رصيد المحفظة</p>
@@ -222,7 +223,7 @@ export default async function Home() {
             {steps.map((s) => (
               <div
                 key={s.n}
-                className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center transition-colors hover:bg-white/10"
+                className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center transition-all duration-300 hover:-translate-y-2 hover:border hover:border-amber-500/50 hover:bg-white/10 hover:shadow-[0_10px_30px_rgba(245,158,11,0.1)]"
               >
                 <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-2xl font-black shadow-lg shadow-amber-500/30">
                   {s.n}
@@ -286,7 +287,7 @@ export default async function Home() {
               <Link
                 key={s.id}
                 href={`/courses?subject=${s.id}`}
-                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-navy transition-all hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md"
+                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-navy transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50 hover:shadow-md hover:shadow-amber-500/10"
               >
                 <span>{s.icon}</span>
                 {s.name}
@@ -313,7 +314,7 @@ export default async function Home() {
               {teachers.map((t) => (
                 <div
                   key={t.id}
-                  className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center transition-all hover:-translate-y-1 hover:shadow-lg"
+                  className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center transition-all duration-300 hover:-translate-y-2 hover:border-amber-300 hover:shadow-[0_10px_30px_rgba(245,158,11,0.1)]"
                 >
                   {t.image ? (
                     <img
@@ -372,7 +373,7 @@ export default async function Home() {
             {features.map((f) => (
               <div
                 key={f.title}
-                className="rounded-2xl border border-slate-200 bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-lg"
+                className="rounded-2xl border border-slate-200 bg-white p-6 transition-all duration-300 hover:-translate-y-2 hover:border hover:border-amber-500/50 hover:shadow-[0_10px_30px_rgba(245,158,11,0.1)]"
               >
                 <span className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${f.color}`}>
                   <f.icon className="h-6 w-6" />
@@ -388,8 +389,9 @@ export default async function Home() {
       {/* ===== الدفع ===== */}
       <section className="py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="relative overflow-hidden rounded-3xl bg-navy p-8 text-white sm:p-12">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 to-slate-800/80 p-8 text-white sm:p-12">
             <div className="absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-amber-500/20 blur-3xl" />
+            <div className="absolute -bottom-24 right-0 h-48 w-96 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="relative grid items-center gap-8 lg:grid-cols-2">
               <div>
                 <h2 className="text-3xl font-black">
