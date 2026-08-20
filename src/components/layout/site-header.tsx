@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { getCurrentUser } from "@/lib/auth"
 import { logoutAction } from "@/app/actions/auth"
 import { prisma } from "@/lib/prisma"
+import { PwaInstallButton } from "@/components/pwa-install"
 
 const navItems = [
   { href: "/", label: "الرئيسية", icon: Home },
@@ -42,6 +43,7 @@ export async function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <PwaInstallButton variant="small" />
           <ThemeToggle />
           {user ? (
             <>

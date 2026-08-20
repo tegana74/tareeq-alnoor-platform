@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Button } from "@/components/ui/button"
 import { CourseCard } from "@/components/ui/course-card"
 import { Logo } from "@/components/ui/logo"
+import { PwaInstallButton } from "@/components/pwa-install"
 
 export const dynamic = "force-dynamic"
 import {
@@ -144,6 +145,7 @@ export default async function Home() {
               <Button href="/register" size="lg" variant="outline">
                 ابدأ مجاناً
               </Button>
+              <PwaInstallButton variant="hero" />
             </div>
             <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
               <span className="flex items-center gap-1.5">
