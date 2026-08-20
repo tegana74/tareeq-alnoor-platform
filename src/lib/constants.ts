@@ -1,8 +1,9 @@
 export const APP_NAME = "منصة طريق النور التعليمية"
 export const APP_NAME_EN = "Tareeq El-Noor"
 export const APP_DESCRIPTION =
-  "منصة طريق النور التعليمية المتكاملة لتقديم أقوى شرح، مراجعات، وامتحانات تفاعلية للمناهج الدراسية بخبرة تعليمية مميزة لضمان التفوق الدراسي."
+  "منصة طريق النور — شروحات واضحة، مراجعات شاملة، وامتحانات تفاعلية للمناهج الدراسية. ابدأ رحلتك نحو التفوق الآن."
 export const SITE_URL = "https://www.tareeq-alnoor.online"
+export const OG_IMAGE = `${SITE_URL}/og-image.png`
 
 export const PAYMENT = {
   vodafoneCash: "01021416244",

@@ -1,0 +1,53 @@
+import type { MetadataRoute } from "next"
+import { prisma } from "@/lib/prisma"
+import { SITE_URL } from "@/lib/constants"
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date()
+
+  const [courses, stages, subjects] = await Promise.all([
+    prisma.course.findMany({
+      where: { isPublished: true },
+      select: { id: true, updatedAt: true },
+    }),
+    prisma.academicStage.findMany({
+      select: { id: true, updatedAt: true },
+    }),
+    prisma.subject.findMany({
+      select: { id: true, updatedAt: true },
+    }),
+  ])
+
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: SITE_URL, lastModified: now, changeFrequency: "daily", priority: 1 },
+    { url: `${SITE_URL}/courses`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { url: `${SITE_URL}/live`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${SITE_URL}/store`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${SITE_URL}/store-locator`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${SITE_URL}/login`, lastModified: now, changeFrequency: "never", priority: 0.3 },
+    { url: `${SITE_URL}/register`, lastModified: now, changeFrequency: "never", priority: 0.3 },
+  ]
+
+  const coursePages: MetadataRoute.Sitemap = courses.map((c) => ({
+    url: `${SITE_URL}/courses/${c.id}`,
+    lastModified: c.updatedAt,
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }))
+
+  const stagePages: MetadataRoute.Sitemap = stages.map((s) => ({
+    url: `${SITE_URL}/courses?stage=${s.id}`,
+    lastModified: s.updatedAt,
+    changeFrequency: "monthly" as const,
+    priority: 0.5,
+  }))
+
+  const subjectPages: MetadataRoute.Sitemap = subjects.map((s) => ({
+    url: `${SITE_URL}/courses?subject=${s.id}`,
+    lastModified: s.updatedAt,
+    changeFrequency: "monthly" as const,
+    priority: 0.5,
+  }))
+
+  return [...staticPages, ...coursePages, ...stagePages, ...subjectPages]
+}

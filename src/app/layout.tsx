@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Cairo } from "next/font/google"
 import "./globals.css"
-import { APP_DESCRIPTION, APP_NAME, SITE_URL } from "@/lib/constants"
+import { APP_DESCRIPTION, APP_NAME, OG_IMAGE, SITE_URL } from "@/lib/constants"
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -11,7 +11,7 @@ const cairo = Cairo({
 
 export const metadata: Metadata = {
   title: {
-    default: "منصة طريق النور التعليمية | شرح وتدريبات المناهج الدراسية",
+    default: "منصة طريق النور التعليمية | الشرح الأفضل للمناهج الدراسية",
     template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
@@ -26,20 +26,40 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL(SITE_URL),
   openGraph: {
-    title: "منصة طريق النور التعليمية | شرح وتدريبات المناهج الدراسية",
+    title: "منصة طريق النور التعليمية | الشرح الأفضل للمناهج الدراسية",
     description: APP_DESCRIPTION,
     url: SITE_URL,
     siteName: APP_NAME,
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: "منصة طريق النور التعليمية",
+      },
+    ],
     locale: "ar_EG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "منصة طريق النور التعليمية | شرح وتدريبات المناهج الدراسية",
+    title: "منصة طريق النور التعليمية | الشرح الأفضل للمناهج الدراسية",
     description: APP_DESCRIPTION,
+    images: [OG_IMAGE],
   },
   alternates: {
     canonical: SITE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 }
 
