@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">طريق النور</string>
+    <string name="title_activity_main">طريق النور</string>
+    <string name="package_name">com.tareeqalnoor.app</string>
+    <string name="custom_url_scheme">com.tareeqalnoor.app</string>
+</resources>
