@@ -35,7 +35,11 @@ export default async function AdminUsersPage() {
       <div className="overflow-visible rounded-2xl border border-slate-200 bg-white">
         <div className="divide-y divide-slate-50">
           {users.map((u) => (
-            <div key={u.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
+            <a
+              key={u.id}
+              href={`/admin/users/${u.id}`}
+              className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50"
+            >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-royal-50 font-black text-royal">
                 {u.firstName[0]}
               </span>
@@ -61,7 +65,7 @@ export default async function AdminUsersPage() {
               </span>
               <GrantCourseButton studentId={u.id} studentName={u.firstName} courses={courseOptions} />
               <StudentActions id={u.id} blocked={u.isBlocked} name={`${u.firstName} ${u.lastName}`} />
-            </div>
+            </a>
           ))}
         </div>
       </div>

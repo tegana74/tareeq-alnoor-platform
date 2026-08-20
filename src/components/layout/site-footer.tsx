@@ -14,7 +14,6 @@ const footerLinks = [
   { title: "المنصة", links: [
     { label: "الرئيسية", href: "/" },
     { label: "الكورسات", href: "/courses" },
-    { label: "المجتمع", href: "/community" },
     { label: "منافذ البيع", href: "/store-locator" },
   ]},
   { title: "حسابي", links: [

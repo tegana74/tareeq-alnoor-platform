@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BookOpen, LogIn, MapPin, MessagesSquare, Radio, UserRound, LogOut, Home, Wallet, Dumbbell, BarChart3, Gift, Bell, ListChecks, Heart, Scale, UsersRound, FileWarning } from "lucide-react"
+import { BookOpen, LogIn, MapPin, Radio, UserRound, LogOut, Home, Wallet, Dumbbell, BarChart3, Gift, Bell, Heart, Scale, UsersRound, FileWarning } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -14,9 +14,7 @@ const navItems = [
   { href: "/results", label: "نتائجي", icon: BarChart3 },
   { href: "/live", label: "بث مباشر", icon: Radio },
   { href: "/store", label: "المتجر", icon: Gift },
-  { href: "/community", label: "المجتمع", icon: MessagesSquare },
   { href: "/store-locator", label: "منافذ البيع", icon: MapPin },
-  { href: "/study-plan", label: "خطة المذاكرة", icon: ListChecks },
 ]
 
 export async function SiteHeader() {

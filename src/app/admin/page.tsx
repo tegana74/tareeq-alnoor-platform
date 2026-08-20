@@ -5,7 +5,6 @@ import {
   CalendarClock,
   CreditCard,
   Gift,
-  MessageSquare,
   Radio,
   Sparkles,
   Ticket,
@@ -39,8 +38,6 @@ export default async function AdminDashboard() {
     pendingCount,
     liveCount,
     liveUpcoming,
-    postsCount,
-    commentsCount,
     pointsGiven,
     pointsSpent,
     codesUsed,
@@ -55,15 +52,13 @@ export default async function AdminDashboard() {
     prisma.invoice.count({ where: { status: "PENDING" } }),
     prisma.liveSession.count(),
     prisma.liveSession.count({ where: { startAt: { gte: new Date() } } }),
-    prisma.communityPost.count({ where: { isDeleted: false } }),
-    prisma.communityComment.count(),
     prisma.pointsTransaction.aggregate({ _sum: { points: true }, where: { points: { gt: 0 } } }),
     prisma.pointsTransaction.aggregate({ _sum: { points: true }, where: { points: { lt: 0 } } }),
     prisma.insertCode.count({ where: { isUsed: true } }),
     prisma.coupon.aggregate({ _sum: { usedCount: true } }),
   ])
 
-  const [recentInvoices, recentStudents, upcomingLive, recentPosts, expiredSoon] = await Promise.all([
+  const [recentInvoices, recentStudents, upcomingLive, expiredSoon] = await Promise.all([
     prisma.invoice.findMany({
       where: { type: "SUBSCRIBE" },
       include: { user: true, course: true },
@@ -74,12 +69,6 @@ export default async function AdminDashboard() {
     prisma.liveSession.findMany({
       where: { startAt: { gte: new Date() } },
       orderBy: { startAt: "asc" },
-      take: 5,
-    }),
-    prisma.communityPost.findMany({
-      where: { isDeleted: false },
-      include: { author: true, category: true, _count: { select: { comments: true } } },
-      orderBy: { createdAt: "desc" },
       take: 5,
     }),
     prisma.subscription.findMany({
@@ -107,7 +96,6 @@ export default async function AdminDashboard() {
     { label: "الكورسات", value: String(courses), sub: "منشورة على المنصة", icon: BookOpen, color: "bg-violet-50 text-violet-600" },
     { label: "اشتراكات نشطة", value: String(subscriptions), sub: "سارية الآن", icon: Wallet, color: "bg-mint-50 text-mint-dark" },
     { label: "جلسات مباشرة", value: String(liveCount), sub: `${liveUpcoming} قادمة`, icon: Radio, color: "bg-rose-50 text-rose-600" },
-    { label: "منشورات المجتمع", value: String(postsCount), sub: `${commentsCount} تعليق`, icon: MessageSquare, color: "bg-amber-50 text-amber-600" },
     { label: "إيرادات الشهر", value: formatPrice(revenueMonth), sub: `الإجمالي ${formatPrice(revenueTotal)}`, icon: TrendingUp, color: "bg-emerald-50 text-emerald-600" },
     { label: "نقاط ممنوحة", value: String(Number(pointsGiven._sum.points ?? 0)), sub: `${Math.abs(Number(pointsSpent._sum.points ?? 0))} مستبدلة`, icon: Sparkles, color: "bg-orange-50 text-orange-600" },
     { label: "أكواد الشحن", value: String(codesUsed), sub: "مستخدمة", icon: Ticket, color: "bg-cyan-50 text-cyan-600" },
@@ -236,39 +224,7 @@ export default async function AdminDashboard() {
         <section className="rounded-2xl border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 className="flex items-center gap-2 font-black text-navy">
-              <MessageSquare className="h-5 w-5 text-amber-600" /> أحدث منشورات المجتمع
-            </h2>
-            <Link href="/community" className="text-xs font-bold text-amber-600 hover:underline">
-              عرض
-            </Link>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {recentPosts.map((p) => (
-              <Link key={p.id} href={`/community/${p.id}`} className="flex flex-wrap items-center gap-3 px-5 py-3 hover:bg-slate-50">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-navy">{p.title}</span>
-                  <span className="block text-xs text-slate-500">
-                    {p.author.firstName} {p.author.lastName} · {p.category.name}
-                  </span>
-                </span>
-                <span className="text-xs text-slate-400">{formatDateTime(p.createdAt)}</span>
-                <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  {p._count.comments}
-                </span>
-              </Link>
-            ))}
-            {recentPosts.length === 0 && (
-              <p className="p-6 text-center text-sm text-slate-400">لا توجد منشورات بعد</p>
-            )}
-          </div>
-        </section>
-      </div>
-
-      <section className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="flex items-center gap-2 font-black text-navy">
-            <UserPlus className="h-5 w-5 text-royal" /> أحدث الطلاب
+              <UserPlus className="h-5 w-5 text-royal" /> أحدث الطلاب
           </h2>
           <Link href="/admin/users" className="text-xs font-bold text-amber-600 hover:underline">
             إدارة الطلاب
@@ -297,6 +253,7 @@ export default async function AdminDashboard() {
           )}
         </div>
       </section>
+      </div>
     </div>
   )
 }

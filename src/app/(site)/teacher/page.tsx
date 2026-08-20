@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { ClipboardList, Radio, Settings2 } from "lucide-react"
+import { ClipboardList, Radio, Settings2, HelpCircle } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { formatDateTime, formatPrice } from "@/lib/utils"
@@ -68,6 +68,15 @@ export default async function TeacherDashboardPage() {
             <Radio className="h-4 w-4 text-rose-500" /> البث المباشر
           </p>
           <p className="mt-1 text-xs text-slate-500">جدولة جلسات مباشرة لطلابك ومتابعة حضورهم</p>
+        </a>
+        <a
+          href="/teacher/question-bank"
+          className="rounded-2xl border-2 border-slate-200 bg-white p-4 transition-colors hover:border-amber-400"
+        >
+          <p className="flex items-center gap-1 font-black text-navy">
+            <HelpCircle className="h-4 w-4 text-amber-500" /> بنك الأسئلة
+          </p>
+          <p className="mt-1 text-xs text-slate-500">إضافة وحذف الأسئلة في بنك الأسئلة</p>
         </a>
         <div className="rounded-2xl border-2 border-slate-200 bg-white p-4">
           <p className="flex items-center gap-1 font-black text-navy">

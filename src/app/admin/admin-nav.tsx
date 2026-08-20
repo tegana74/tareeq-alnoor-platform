@@ -15,10 +15,10 @@ import {
   Home,
   LogOut,
   MapPin,
-  ListChecks,
   Scale,
   FileWarning,
   Layers,
+  HelpCircle,
 } from "lucide-react"
 import { classNames } from "@/lib/utils"
 import { logoutAction } from "@/app/actions/auth"
@@ -34,7 +34,7 @@ const links = [
   { href: "/admin/coupons", label: "الكوبونات", icon: Percent },
   { href: "/admin/store", label: "المتجر", icon: Gift },
   { href: "/admin/store-locator", label: "منافذ البيع", icon: MapPin },
-  { href: "/admin/study-plan", label: "خطة المذاكرة", icon: ListChecks },
+  { href: "/admin/question-bank", label: "بنك الأسئلة", icon: HelpCircle },
   { href: "/admin/appeals", label: "التظلمات", icon: Scale },
   { href: "/admin/exemptions", label: "طلبات الإعفاء", icon: FileWarning },
   { href: "/admin/structure", label: "البنية التعليمية", icon: Layers },

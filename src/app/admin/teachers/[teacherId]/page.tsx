@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ChevronLeft, GraduationCap, Radio, UsersRound, Wallet } from "lucide-react"
+import { ChevronLeft, GraduationCap, Radio, UsersRound, Wallet, Phone, Lock } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { formatPrice } from "@/lib/utils"
 
@@ -17,7 +17,7 @@ export default async function AdminTeacherStatsPage({
   const teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
     include: {
-      user: { select: { firstName: true, lastName: true, phone: true, isBlocked: true } },
+      user: { select: { firstName: true, lastName: true, phone: true, password: true, isBlocked: true } },
       _count: { select: { courses: true, liveSessions: true } },
       courses: { select: { id: true } },
     },
@@ -122,6 +122,25 @@ export default async function AdminTeacherStatsPage({
           </span>
         </div>
       </div>
+
+      {teacher.user && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
+            <Phone className="h-5 w-5 text-amber-500" />
+            <div>
+              <p className="text-xs text-slate-400">رقم التليفون</p>
+              <p className="font-bold text-navy" dir="ltr">{teacher.user.phone}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
+            <Lock className="h-5 w-5 text-amber-500" />
+            <div>
+              <p className="text-xs text-slate-400">كلمة السر</p>
+              <p className="font-bold text-navy">{teacher.user.password}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCard(<UsersRound className="h-5 w-5" />, "إجمالي الطلاب", String(totalStudents))}
