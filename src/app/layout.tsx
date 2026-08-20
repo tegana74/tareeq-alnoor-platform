@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Cairo } from "next/font/google"
 import "./globals.css"
-import { APP_DESCRIPTION, APP_NAME } from "@/lib/constants"
+import { APP_DESCRIPTION, APP_NAME, SITE_URL } from "@/lib/constants"
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -11,16 +11,35 @@ const cairo = Cairo({
 
 export const metadata: Metadata = {
   title: {
-    default: `${APP_NAME} — منصة تعليمية للمرحلة الثانوية`,
+    default: "منصة طريق النور التعليمية | شرح وتدريبات المناهج الدراسية",
     template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
-  metadataBase: new URL("http://localhost:3000"),
+  keywords: [
+    "منصة طريق النور",
+    "تعليم إلكتروني",
+    "شرح مناهج دراسية",
+    "مراجعات نهائية",
+    "امتحانات تفاعلية",
+    "دروس اونلاين",
+    "منصة تعليمية مصرية",
+  ],
+  metadataBase: new URL(SITE_URL),
   openGraph: {
-    title: APP_NAME,
+    title: "منصة طريق النور التعليمية | شرح وتدريبات المناهج الدراسية",
     description: APP_DESCRIPTION,
+    url: SITE_URL,
+    siteName: APP_NAME,
     locale: "ar_EG",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "منصة طريق النور التعليمية | شرح وتدريبات المناهج الدراسية",
+    description: APP_DESCRIPTION,
+  },
+  alternates: {
+    canonical: SITE_URL,
   },
 }
 
