@@ -25,6 +25,10 @@ export const metadata: Metadata = {
     "منصة تعليمية مصرية",
   ],
   metadataBase: new URL(SITE_URL),
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     title: "منصة طريق النور التعليمية | الشرح الأفضل للمناهج الدراسية",
     description: APP_DESCRIPTION,
