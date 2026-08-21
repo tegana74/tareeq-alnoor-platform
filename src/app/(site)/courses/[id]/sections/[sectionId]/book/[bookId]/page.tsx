@@ -59,7 +59,10 @@ export default async function BookPage({ params }: BookPageProps) {
   }
 
   const isUploaded = book.fileUrl.startsWith("/api/files/") || book.fileUrl.includes("supabase")
-  const fileUrl = resolveFileUrl(book.fileUrl)
+  const rawFileUrl = resolveFileUrl(book.fileUrl)
+  const fileUrl = rawFileUrl.includes("supabase") && process.env.SUPABASE_URL
+    ? rawFileUrl
+    : book.fileUrl
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">

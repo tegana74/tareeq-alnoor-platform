@@ -34,7 +34,7 @@ async function resolveAccess(
   if (invoice) {
     return { allowed: invoice.userId === user.id || user.role === "ADMIN", downloadAllowed: true }
   }
-  return { allowed: false, downloadAllowed: false }
+  return { allowed: user.role === "ADMIN", downloadAllowed: false }
 }
 
 export async function GET(request: NextRequest, ctx: { params: Promise<{ filename: string }> }) {
@@ -42,19 +42,20 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ filenam
   if (!user) return new Response("يجب تسجيل الدخول", { status: 401 })
 
   const { filename } = await ctx.params
-  if (!/^[\w-]+(\.[a-z0-9]+)?$/i.test(filename)) return new Response("غير موجود", { status: 404 })
+  const decoded = decodeURIComponent(filename)
+  if (!decoded || decoded.length > 255) return new Response("غير موجود", { status: 404 })
 
   const wantDownload = new URL(request.url).searchParams.get("dl") === "1"
-  const { allowed, downloadAllowed } = await resolveAccess(filename, user)
+  const { allowed, downloadAllowed } = await resolveAccess(decoded, user)
   if (!allowed) return new Response("غير مصرح", { status: 403 })
   if (wantDownload && !downloadAllowed) {
     return new Response("التنزيل غير متاح لهذا الملف", { status: 403 })
   }
 
-  const file = await getSupabaseFile(filename)
+  const file = await getSupabaseFile(decoded)
   if (!file) return new Response("غير موجود", { status: 404 })
 
-  const ext = `.${filename.split(".").pop()}`
+  const ext = `.${decoded.split(".").pop()}`
   const contentType = file.contentType || MIME[ext] || "application/octet-stream"
   const disposition = wantDownload ? "attachment" : "inline"
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ filenam
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(file.buffer.length),
-      "Content-Disposition": `${disposition}; filename="${filename}"`,
+      "Content-Disposition": `${disposition}; filename="${encodeURIComponent(decoded)}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

@@ -1,6 +1,3 @@
-import { createClient } from "@supabase/supabase-js"
-
-const SUPABASE_URL = process.env.SUPABASE_URL!
 const BUCKET = "uploads"
 
 export function resolveFileUrl(url: string): string {
@@ -8,9 +5,13 @@ export function resolveFileUrl(url: string): string {
 
   if (url.includes("supabase")) return url
 
-  const match = url.match(/\/api\/files\/([\w-]+\.[a-z0-9]+)/i)
+  const match = url.match(/\/api\/files\/([\w.-]+)/i)
   if (match) {
-    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${match[1]}`
+    const supabaseUrl = process.env.SUPABASE_URL
+    if (supabaseUrl) {
+      return `${supabaseUrl}/storage/v1/object/public/${BUCKET}/${match[1]}`
+    }
+    return url
   }
 
   return url
