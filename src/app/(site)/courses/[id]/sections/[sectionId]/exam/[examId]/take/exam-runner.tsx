@@ -113,7 +113,7 @@ export function ExamRunner({
   const hours = Math.floor(timeLeft / 3600)
   const minutes = Math.floor((timeLeft % 3600) / 60)
   const seconds = timeLeft % 60
-  const timeColor = timeLeft < 300 ? "text-rose-600" : "text-navy"
+  const timeColor = timeLeft < 300 ? "text-rose-600 animate-pulse" : "text-navy"
 
   if (!q) {
     return (
@@ -242,6 +242,13 @@ export function ExamRunner({
           <p className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-700">
             <AlertTriangle className="h-4 w-4" />
             لديك {questions.length - answeredCount} سؤال لم تُجب عنه بعد
+          </p>
+        )}
+
+        {timeLeft > 0 && timeLeft < 300 && (
+          <p className="mt-2 flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-600">
+            <AlertTriangle className="h-4 w-4" />
+            الوقت يكاد ينتهي! سيتم تسليم إجاباتك تلقائياً بعد {timeLeft} ثانية
           </p>
         )}
       </div>

@@ -377,7 +377,7 @@ export async function saveAIQuestionsAction(
     return { ok: false, error: "لا توجد أسئلة للحفظ" }
   }
 
-  const title = examType === "HOMEWORK" ? `واجب بالذكاء الاصطناعي — ${section.title}` : `اختبار بالذكاء الاصطناعي — ${section.title}`
+  const title = examType === "HOMEWORK" ? `واجب بالذكاء الاصطناعي — ${section.name}` : `اختبار بالذكاء الاصطناعي — ${section.name}`
 
   const max = await prisma.exam.aggregate({ where: { sectionId }, _max: { order: true } })
   const exam = await prisma.exam.create({
