@@ -2,10 +2,10 @@
 
 import { useActionState, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CheckCircle2, ChevronDown, FileUp, Loader2, Plus, Save, Trash2, Upload, X, Brain } from "lucide-react"
+import { CheckCircle2, ChevronDown, FileUp, Loader2, Plus, Save, Trash2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
-import { AIGenerator } from "@/components/ai-generator"
+import AIGenerator from "@/components/ai-generator"
 import {
   createSectionAction,
   deleteSectionAction,
@@ -533,30 +533,6 @@ export function QuestionDelete({ questionId }: { questionId: string }) {
 
 export function QuestionList({ exam }: { exam: { id: string; questions: { id: string; text: string; type: string; points: number; options: string[] | null; correctAnswer: string | null; order: number }[] } }) {
   const [open, setOpen] = useState(false)
-  const [aiOpen, setAiOpen] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const router = useRouter()
-
-  async function handleAddAIQuestions(aiQuestions: { question: string; options: string[]; correctAnswer: string; difficulty: string }[]) {
-    setAdding(true)
-    try {
-      for (const q of aiQuestions) {
-        const fd = new FormData()
-        fd.set("examId", exam.id)
-        fd.set("text", q.question)
-        fd.set("type", "MCQ")
-        fd.set("points", "1")
-        q.options.forEach((opt, i) => fd.set(`option${i}`, opt))
-        const correctIdx = q.options.indexOf(q.correctAnswer)
-        fd.set("correctAnswer", String(correctIdx >= 0 ? correctIdx : 0))
-        await saveQuestionAction({ ok: false }, fd)
-      }
-      setAiOpen(false)
-      try { await router.refresh() } catch { /* ignore */ }
-    } catch { /* ignore */ }
-    setAdding(false)
-  }
-
   return (
     <div className="mt-2">
       <button
@@ -584,22 +560,6 @@ export function QuestionList({ exam }: { exam: { id: string; questions: { id: st
             </div>
           ))}
           <QuestionEditor examId={exam.id} />
-          <div className="pt-2 border-t border-slate-100">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setAiOpen(!aiOpen)}>
-              <Brain className="h-4 w-4 text-violet-500" /> توليد بالذكاء الاصطناعي
-            </Button>
-            {aiOpen && (
-              <div className="mt-2">
-                {adding ? (
-                  <div className="flex items-center gap-2 rounded-xl bg-violet-50 p-4 text-sm text-violet-600">
-                    <Loader2 className="h-4 w-4 animate-spin" /> جاري إضافة الأسئلة...
-                  </div>
-                ) : (
-                  <AIGenerator onAddToExam={handleAddAIQuestions} />
-                )}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>

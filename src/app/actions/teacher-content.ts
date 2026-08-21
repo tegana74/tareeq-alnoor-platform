@@ -350,3 +350,64 @@ export async function deleteQuestionAction(_prev: unknown, formData: FormData): 
   }
   return { ok: true }
 }
+
+// ============================= أسئلة الذكاء الاصطناعي =============================
+
+export async function saveAIQuestionsAction(
+  _prev: unknown,
+  formData: FormData
+): Promise<ActionResult> {
+  const sectionId = String(formData.get("sectionId") ?? "")
+  const examType = String(formData.get("examType") ?? "EXAM") as "EXAM" | "HOMEWORK"
+  const questionsJson = String(formData.get("questions") ?? "[]")
+
+  if (!sectionId) return { ok: false, error: "معرف القسم مطلوب" }
+
+  const { user, section } = await ownsSection(sectionId)
+  if (!user || !section) return { ok: false, error: "غير مصرح" }
+
+  let questions: { question: string; options: string[]; correctAnswer: string; difficulty: string }[]
+  try {
+    questions = JSON.parse(questionsJson)
+  } catch {
+    return { ok: false, error: "بيانات الأسئلة غير صالحة" }
+  }
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return { ok: false, error: "لا توجد أسئلة للحفظ" }
+  }
+
+  const title = examType === "HOMEWORK" ? `واجب بالذكاء الاصطناعي — ${section.title}` : `اختبار بالذكاء الاصطناعي — ${section.title}`
+
+  const max = await prisma.exam.aggregate({ where: { sectionId }, _max: { order: true } })
+  const exam = await prisma.exam.create({
+    data: {
+      sectionId,
+      title,
+      type: examType,
+      durationMinutes: examType === "HOMEWORK" ? 0 : 60,
+      order: (max._max.order ?? 0) + 1,
+    },
+  })
+
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]
+    const correctIdx = q.options.indexOf(q.correctAnswer)
+    await prisma.question.create({
+      data: {
+        examId: exam.id,
+        text: q.question,
+        type: "MCQ",
+        points: q.difficulty === "صعب" ? 3 : q.difficulty === "متوسط" ? 2 : 1,
+        order: i + 1,
+        options: q.options,
+        correctAnswer: String(correctIdx >= 0 ? correctIdx : 0),
+      },
+    })
+  }
+
+  const total = await prisma.question.aggregate({ where: { examId: exam.id }, _sum: { points: true } })
+  await prisma.exam.update({ where: { id: exam.id }, data: { totalScore: total._sum.points ?? 0 } })
+
+  return { ok: true }
+}

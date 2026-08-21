@@ -15,6 +15,7 @@ import {
   ExamDelete,
   QuestionList,
 } from "./teacher-content-forms"
+import { SectionAIGenerator } from "./section-ai-generator"
 import { ExamType } from "@/generated/prisma/enums"
 
 export const metadata: Metadata = { title: "إدارة الكورس" }
@@ -208,6 +209,11 @@ export default async function ManageCoursePage({ params }: ManageCourseProps) {
               ))}
               <div className="py-1">
                 <ExamEditor sectionId={section.id} />
+              </div>
+
+              {/* مولّد الأسئلة بالذكاء الاصطناعي */}
+              <div className="py-1">
+                <SectionAIGenerator sectionId={section.id} />
               </div>
             </div>
           </div>
