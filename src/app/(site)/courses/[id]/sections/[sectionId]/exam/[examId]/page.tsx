@@ -24,6 +24,8 @@ export async function generateMetadata({ params }: ExamIntroProps): Promise<Meta
 export default async function ExamIntroPage({ params }: ExamIntroProps) {
   const { id: courseId, sectionId, examId } = await params
 
+  console.log("EXAM PAGE PARAMS:", { courseId, sectionId, examId })
+
   try {
     const user = await getCurrentUser()
     if (!user) redirect("/login")
@@ -37,7 +39,12 @@ export default async function ExamIntroPage({ params }: ExamIntroProps) {
       },
     })
 
-    if (!exam || exam.section.courseId !== courseId) notFound()
+    console.log("EXAM FETCH RESULT:", exam ? `found: ${exam.title}` : "NOT FOUND")
+
+    if (!exam || exam.section.courseId !== courseId) {
+      console.log("EXAM NOT FOUND OR courseId mismatch:", { examCourseId: exam?.section.courseId, expectedCourseId: courseId })
+      notFound()
+    }
 
     const hasAccess = await canAccessCourse(user, courseId)
     if (!exam.isFree && !hasAccess) {
@@ -157,7 +164,7 @@ export default async function ExamIntroPage({ params }: ExamIntroProps) {
       </div>
     )
   } catch (err) {
-    console.error("ExamIntroPage error:", err)
+    console.error("EXAM FETCH ERROR:", err)
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-lg font-bold text-slate-500">حدث خطأ أثناء تحميل الاختبار</p>

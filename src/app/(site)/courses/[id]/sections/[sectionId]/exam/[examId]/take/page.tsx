@@ -14,6 +14,8 @@ export const metadata: Metadata = { title: "حل الاختبار" }
 export default async function ExamTakePage({ params }: ExamTakePageProps) {
   const { id: courseId, sectionId, examId } = await params
 
+  console.log("EXAM TAKE PAGE PARAMS:", { courseId, sectionId, examId })
+
   try {
     const user = await getCurrentUser()
     if (!user) redirect("/login")
@@ -26,6 +28,8 @@ export default async function ExamTakePage({ params }: ExamTakePageProps) {
         attempts: { where: { userId: user.id } },
       },
     })
+
+    console.log("EXAM TAKE FETCH:", exam ? `found: ${exam.title}, questions: ${exam.questions.length}` : "NOT FOUND")
 
     if (!exam || exam.section.courseId !== courseId) notFound()
 
@@ -75,7 +79,7 @@ export default async function ExamTakePage({ params }: ExamTakePageProps) {
       />
     )
   } catch (err) {
-    console.error("ExamTakePage error:", err)
+    console.error("EXAM TAKE ERROR:", err)
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-lg font-bold text-slate-500">حدث خطأ أثناء تحميل الاختبار</p>
