@@ -34,9 +34,10 @@ export function ExamRunner({
   questions,
 }: ExamRunnerProps) {
   const router = useRouter()
+  const safeQuestions = Array.isArray(questions) ? questions : []
   const [current, setCurrent] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [timeLeft, setTimeLeft] = useState(durationMinutes * 60)
+  const [timeLeft, setTimeLeft] = useState(Math.max(1, durationMinutes) * 60)
   const [submitting, setSubmitting] = useState(false)
   const loadedRef = useRef(false)
 
@@ -108,8 +109,8 @@ export function ExamRunner({
     }
   }
 
-  const q = questions[current]
-  const answeredCount = questions.filter((question) => answers[question.id]).length
+  const q = safeQuestions[current]
+  const answeredCount = safeQuestions.filter((question) => answers[question.id]).length
   const hours = Math.floor(timeLeft / 3600)
   const minutes = Math.floor((timeLeft % 3600) / 60)
   const seconds = timeLeft % 60
@@ -117,8 +118,11 @@ export function ExamRunner({
 
   if (!q) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center">
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-lg font-bold text-slate-500">لا توجد أسئلة في هذا الاختبار</p>
+        <a href={`/courses/${courseId}/sections/${sectionId}/exam/${examId}`} className="text-sm font-bold text-amber-600 hover:underline">
+          العودة لصفحة الاختبار ←
+        </a>
       </div>
     )
   }
@@ -142,7 +146,7 @@ export function ExamRunner({
 
       {/* التنقل بين الأسئلة */}
       <div className="mb-6 flex flex-wrap gap-2">
-        {questions.map((question, i) => {
+        {safeQuestions.map((question, i) => {
           const answered = Boolean(answers[question.id])
           return (
             <button
@@ -163,7 +167,7 @@ export function ExamRunner({
         })}
         <span className="mr-auto flex items-center gap-1 self-center text-sm font-bold text-slate-500">
           <CheckCircle2 className="h-4 w-4 text-mint" />
-          {answeredCount}/{questions.length}
+          {answeredCount}/{safeQuestions.length}
         </span>
       </div>
 
@@ -225,8 +229,8 @@ export function ExamRunner({
             <ChevronLeft className="h-4 w-4" />
             السابق
           </Button>
-          {current < questions.length - 1 ? (
-            <Button onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}>
+          {current < safeQuestions.length - 1 ? (
+            <Button onClick={() => setCurrent((c) => Math.min(safeQuestions.length - 1, c + 1))}>
               التالي
               <ChevronLeft className="h-4 w-4 rotate-180" />
             </Button>
@@ -238,10 +242,10 @@ export function ExamRunner({
           )}
         </div>
 
-        {answeredCount < questions.length && (
+        {answeredCount < safeQuestions.length && (
           <p className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-700">
             <AlertTriangle className="h-4 w-4" />
-            لديك {questions.length - answeredCount} سؤال لم تُجب عنه بعد
+            لديك {safeQuestions.length - answeredCount} سؤال لم تُجب عنه بعد
           </p>
         )}
 
