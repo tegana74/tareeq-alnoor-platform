@@ -296,20 +296,21 @@ model Question {
 }
 
 model ExamAttempt {
-  id         String       @id @default(cuid())
-  userId     String
-  examId     String
-  startedAt  DateTime     @default(now())
-  finishedAt DateTime?
-  score      Decimal      @default(0)
-  totalScore Decimal      @default(0)
-  status     String       @default("in_progress") // in_progress | submitted | graded
-  isPassed   Boolean?
-  createdAt  DateTime     @default(now())
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exam       Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
-  answers    ExamAnswer[]
-  appeals    Appeal[]
+  id                String       @id @default(cuid())
+  userId            String
+  examId            String
+  startedAt         DateTime     @default(now())
+  finishedAt        DateTime?
+  score             Decimal      @default(0)
+  totalScore        Decimal      @default(0)
+  status            String       @default("in_progress") // in_progress | submitted | graded
+  isPassed          Boolean?
+  isResultPublished Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam              Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers           ExamAnswer[]
+  appeals           Appeal[]
 
   @@map("exam_attempts")
 }
