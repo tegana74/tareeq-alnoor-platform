@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     console.log("2. Payload received:", { lessonName, count })
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     const prompt = `أنت خبير تربوي في وضع مناهج اللغة العربية للمرحلة الثانوية والإعدادية في مصر. قم بتوليد ${count} أسئلة اختيار من متعدد عن درس "${lessonName}". أرجع النتيجة حصرياً بصيغة JSON كمصفوفة تحتوي على كائنات بالشكل التالي: [{"question": "نص", "options": ["1", "2", "3", "4"], "correctAnswer": "الخيار", "difficulty": "سهل"}] لا تقم بإضافة أي نصوص أخرى.`
 
