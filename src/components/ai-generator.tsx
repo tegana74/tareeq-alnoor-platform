@@ -4,51 +4,59 @@ import { useState } from "react"
 import { Brain, CheckCircle2, HelpCircle, Loader2, Plus, Sparkles, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-type QuestionType = "MCQ" | "ESSAY"
-type GenerateType = "MCQ" | "ESSAY" | "mixed"
-
 interface GeneratedQuestion {
-  id: string
-  text: string
-  type: QuestionType
-  options?: string[]
+  question: string
+  options: string[]
+  correctAnswer: string
+  difficulty: string
 }
 
 const inputCls =
   "h-10 w-full rounded-lg border-2 border-slate-200 px-3 text-sm font-bold text-navy outline-none focus:border-amber-400"
 
+const difficultyColor: Record<string, string> = {
+  "سهل": "bg-emerald-50 text-emerald-600",
+  "متوسط": "bg-amber-50 text-amber-600",
+  "صعب": "bg-rose-50 text-rose-600",
+}
+
 export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: GeneratedQuestion[]) => void }) {
-  const [topic, setTopic] = useState("")
+  const [lessonName, setLessonName] = useState("")
   const [count, setCount] = useState(5)
-  const [type, setType] = useState<GenerateType>("mixed")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<number>>(new Set())
   const [added, setAdded] = useState(false)
 
   const allSelected = questions.length > 0 && selected.size === questions.length
 
-  function toggleSelect(id: string) {
+  function toggleSelect(i: number) {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
       return next
     })
     setAdded(false)
   }
 
   function toggleSelectAll() {
-    setSelected(allSelected ? new Set() : new Set(questions.map((q) => q.id)))
+    setSelected(allSelected ? new Set() : new Set(questions.map((_, i) => i)))
     setAdded(false)
   }
 
-  function removeQuestion(id: string) {
-    setQuestions((prev) => prev.filter((q) => q.id !== id))
+  function removeQuestion(i: number) {
+    setQuestions((prev) => prev.filter((_, idx) => idx !== i))
     setSelected((prev) => {
       const next = new Set(prev)
-      next.delete(id)
+      next.delete(i)
+      for (const s of next) {
+        if (s > i) {
+          next.delete(s)
+          next.add(s - 1)
+        }
+      }
       return next
     })
     setAdded(false)
@@ -65,7 +73,7 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
       const res = await fetch("/api/ai/generate-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, count, type }),
+        body: JSON.stringify({ lessonName, count }),
       })
       if (!res.ok) throw new Error("request failed")
       const data = await res.json()
@@ -80,7 +88,7 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
   }
 
   function handleAddToExam() {
-    const chosen = questions.filter((q) => selected.has(q.id))
+    const chosen = questions.filter((_, i) => selected.has(i))
     if (!chosen.length) return
     onAddToExam(chosen)
     setAdded(true)
@@ -94,19 +102,19 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
         </span>
         <div>
           <h3 className="font-black text-navy">مولّد الأسئلة الذكي</h3>
-          <p className="text-xs text-slate-400">أدخل الموضوع ودع الذكاء الاصطناعي يولّد الأسئلة لك</p>
+          <p className="text-xs text-slate-400">أدخل اسم الدرس ودع الذكاء الاصطناعي يولّد الأسئلة لك</p>
         </div>
       </div>
 
-      <form onSubmit={handleGenerate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_100px_140px_auto] sm:items-end">
+      <form onSubmit={handleGenerate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_100px_auto] sm:items-end">
         <div>
-          <label className="mb-1 block text-xs font-black text-navy">الموضوع</label>
+          <label className="mb-1 block text-xs font-black text-navy">اسم الدرس</label>
           <input
             type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
+            value={lessonName}
+            onChange={(e) => setLessonName(e.target.value)}
             required
-            placeholder="مثال: قوانين نيوتن للحركة"
+            placeholder="مثال: الجملة الاسمية والفعلية في النحو العربي"
             className={inputCls}
           />
         </div>
@@ -120,14 +128,6 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
             onChange={(e) => setCount(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
             className={inputCls}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-black text-navy">النوع</label>
-          <select value={type} onChange={(e) => setType(e.target.value as GenerateType)} className={inputCls}>
-            <option value="mixed">مختلط</option>
-            <option value="MCQ">اختيار من متعدد</option>
-            <option value="ESSAY">مقالي</option>
-          </select>
         </div>
         <Button type="submit" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -181,10 +181,11 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
 
           <ul className="mt-3 space-y-2">
             {questions.map((q, i) => {
-              const isSelected = selected.has(q.id)
+              const isSelected = selected.has(i)
+              const diffClass = difficultyColor[q.difficulty] ?? "bg-slate-50 text-slate-500"
               return (
                 <li
-                  key={q.id}
+                  key={i}
                   className={`rounded-xl border p-3 transition-colors ${
                     isSelected ? "border-amber-300 bg-amber-50" : "border-slate-100 bg-white hover:border-slate-200"
                   }`}
@@ -193,27 +194,29 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
                     <input
                       type="checkbox"
                       checked={isSelected}
-                      onChange={() => toggleSelect(q.id)}
+                      onChange={() => toggleSelect(i)}
                       className="mt-1 h-4 w-4 accent-amber-500"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-black text-slate-400">س{i + 1}</span>
-                        {q.type === "MCQ" ? (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-600">
-                            اختيار من متعدد
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-black text-violet-600">
-                            مقالي
-                          </span>
-                        )}
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-600">
+                          اختيار من متعدد
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${diffClass}`}>
+                          {q.difficulty}
+                        </span>
                       </div>
-                      <p className="mt-1 text-sm font-bold text-navy">{q.text}</p>
-                      {q.options && q.options.length > 0 && (
+                      <p className="mt-1 text-sm font-bold text-navy">{q.question}</p>
+                      {q.options.length > 0 && (
                         <ul className="mt-1.5 space-y-1">
                           {q.options.map((opt, j) => (
-                            <li key={j} className="text-xs text-slate-500">
+                            <li
+                              key={j}
+                              className={`text-xs ${
+                                opt === q.correctAnswer ? "font-bold text-emerald-600" : "text-slate-500"
+                              }`}
+                            >
                               {String.fromCharCode(65 + j)}. {opt}
                             </li>
                           ))}
@@ -222,7 +225,7 @@ export function AiGenerator({ onAddToExam }: { onAddToExam: (questions: Generate
                     </div>
                     <button
                       type="button"
-                      onClick={() => removeQuestion(q.id)}
+                      onClick={() => removeQuestion(i)}
                       className="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-500"
                       aria-label="حذف السؤال"
                     >

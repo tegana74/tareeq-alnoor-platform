@@ -537,19 +537,18 @@ export function QuestionList({ exam }: { exam: { id: string; questions: { id: st
   const [adding, setAdding] = useState(false)
   const router = useRouter()
 
-  async function handleAddAIQuestions(aiQuestions: { text: string; type: string; options?: string[]; correctAnswer?: string; points: number }[]) {
+  async function handleAddAIQuestions(aiQuestions: { question: string; options: string[]; correctAnswer: string; difficulty: string }[]) {
     setAdding(true)
     try {
       for (const q of aiQuestions) {
         const fd = new FormData()
         fd.set("examId", exam.id)
-        fd.set("text", q.text)
-        fd.set("type", q.type)
-        fd.set("points", String(q.points))
-        if (q.type === "MCQ" && q.options) {
-          q.options.forEach((opt, i) => fd.set(`option${i}`, opt))
-          fd.set("correctAnswer", q.correctAnswer ?? "0")
-        }
+        fd.set("text", q.question)
+        fd.set("type", "MCQ")
+        fd.set("points", "1")
+        q.options.forEach((opt, i) => fd.set(`option${i}`, opt))
+        const correctIdx = q.options.indexOf(q.correctAnswer)
+        fd.set("correctAnswer", String(correctIdx >= 0 ? correctIdx : 0))
         await saveQuestionAction({ ok: false }, fd)
       }
       setAiOpen(false)
