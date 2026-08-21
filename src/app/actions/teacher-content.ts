@@ -359,9 +359,13 @@ export async function saveAIQuestionsAction(
 ): Promise<ActionResult> {
   const sectionId = String(formData.get("sectionId") ?? "")
   const examType = String(formData.get("examType") ?? "EXAM") as "EXAM" | "HOMEWORK"
+  const title = String(formData.get("title") ?? "").trim()
+  const durationMinutes = Number(formData.get("durationMinutes") ?? 60)
+  const isFree = String(formData.get("isFree")) === "true"
   const questionsJson = String(formData.get("questions") ?? "[]")
 
   if (!sectionId) return { ok: false, error: "معرف القسم مطلوب" }
+  if (!title) return { ok: false, error: "عنوان الاختبار مطلوب" }
 
   const { user, section } = await ownsSection(sectionId)
   if (!user || !section) return { ok: false, error: "غير مصرح" }
@@ -377,15 +381,14 @@ export async function saveAIQuestionsAction(
     return { ok: false, error: "لا توجد أسئلة للحفظ" }
   }
 
-  const title = examType === "HOMEWORK" ? `واجب بالذكاء الاصطناعي — ${section.name}` : `اختبار بالذكاء الاصطناعي — ${section.name}`
-
   const max = await prisma.exam.aggregate({ where: { sectionId }, _max: { order: true } })
   const exam = await prisma.exam.create({
     data: {
       sectionId,
       title,
       type: examType,
-      durationMinutes: examType === "HOMEWORK" ? 0 : 60,
+      durationMinutes: Math.max(1, durationMinutes),
+      isFree,
       order: (max._max.order ?? 0) + 1,
     },
   })
