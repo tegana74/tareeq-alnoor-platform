@@ -166,11 +166,13 @@ export default async function ExamIntroPage({ params }: ExamIntroProps) {
   } catch (err) {
     console.error("EXAM FETCH ERROR:", err)
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-slate-500">حدث خطأ أثناء تحميل الاختبار</p>
-        <a href={`/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
-          العودة للدورة ←
-        </a>
+      <div className="p-10 text-white flex flex-col gap-4" dir="rtl">
+        <h1 className="text-xl font-bold text-red-500">تفاصيل الخطأ للتشخيص التقني:</h1>
+        <p>Exam ID: {examId}</p>
+        <p>Course ID: {courseId}</p>
+        <p>Section ID: {sectionId}</p>
+        <p className="bg-red-900 p-4 rounded text-sm">Error Message: {err instanceof Error ? err.message : String(err)}</p>
+        <a href={`/courses/${courseId}`} className="text-yellow-500 mt-4">العودة للدورة</a>
       </div>
     )
   }
