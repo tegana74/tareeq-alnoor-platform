@@ -120,8 +120,8 @@ export function ExamRunner({
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-lg font-bold text-slate-500">لا توجد أسئلة في هذا الاختبار</p>
-        <a href={`/courses/${courseId}/sections/${sectionId}/exam/${examId}`} className="text-sm font-bold text-amber-600 hover:underline">
-          العودة لصفحة الاختبار ←
+        <a href={`/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
+          العودة للدورة ←
         </a>
       </div>
     )

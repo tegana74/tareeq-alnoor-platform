@@ -161,7 +161,7 @@ export default async function ExamIntroPage({ params }: ExamIntroProps) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-lg font-bold text-slate-500">حدث خطأ أثناء تحميل الاختبار</p>
-        <a href={`/student/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
+        <a href={`/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
           العودة للدورة ←
         </a>
       </div>
