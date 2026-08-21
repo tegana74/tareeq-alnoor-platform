@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronDown, FileUp, Loader2, Plus, Save, Trash2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
-import AIGenerator from "@/components/ai-generator"
 import {
   createSectionAction,
   deleteSectionAction,
