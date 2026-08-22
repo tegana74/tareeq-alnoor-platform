@@ -10,9 +10,19 @@ export default async function AdminUsersPage() {
   const [users, years, courses] = await Promise.all([
     prisma.user.findMany({
       where: { role: "STUDENT" },
-      include: {
-        year: true,
-        department: true,
+      select: {
+        id: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        phone: true,
+        isActive: true,
+        isBlocked: true,
+        createdAt: true,
+        points: true,
+        walletBalance: true,
+        year: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
         _count: { select: { subscriptions: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -51,8 +61,8 @@ export default async function AdminUsersPage() {
                   {u.phone} · {u.year?.name ?? "بدون سنة"} {u.department ? `· ${u.department.name}` : ""}
                 </p>
               </div>
-              <span className="text-xs font-bold text-slate-500">{u._count.subscriptions} اشتراك</span>
-              <span className="text-xs font-bold text-slate-400">{formatDate(u.createdAt)}</span>
+              <span className="text-xs font-medium text-slate-500">{u._count.subscriptions} اشتراك</span>
+              <span className="text-xs font-medium text-slate-400">{formatDate(u.createdAt)}</span>
               <span className="text-xs font-black text-navy">
                 {u.points} نقطة · {formatPrice(u.walletBalance)}
               </span>

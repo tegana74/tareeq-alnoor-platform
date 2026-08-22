@@ -26,15 +26,10 @@ function isIOS(): boolean {
 export function PwaInstallButton({ variant = "small" }: { variant?: "small" | "hero" }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showIOSModal, setShowIOSModal] = useState(false)
-  const [installed, setInstalled] = useState(true)
+  const [installed, setInstalled] = useState(() => isStandalone())
 
   useEffect(() => {
-    if (isStandalone()) {
-      setInstalled(true)
-      return
-    }
-
-    setInstalled(false)
+    if (installed) return
 
     const handler = (e: Event) => {
       e.preventDefault()
@@ -43,7 +38,7 @@ export function PwaInstallButton({ variant = "small" }: { variant?: "small" | "h
 
     window.addEventListener("beforeinstallprompt", handler)
     return () => window.removeEventListener("beforeinstallprompt", handler)
-  }, [])
+  }, [installed])
 
   const handleInstall = useCallback(async () => {
     if (isIOS()) {
@@ -140,7 +135,7 @@ function IOSModal({ open, onClose }: { open: boolean; onClose: () => void }) {
               ٢
             </span>
             <div>
-              <p className="text-sm font-bold text-navy">اختر "إضافة إلى الشاشة الرئيسية"</p>
+              <p className="text-sm font-bold text-navy">اختر {"\u201C"}إضافة إلى الشاشة الرئيسية{"\u201D"}</p>
               <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                 <Plus className="inline h-3 w-3" /> اسحب للأسفل واضغط
               </p>
@@ -152,7 +147,7 @@ function IOSModal({ open, onClose }: { open: boolean; onClose: () => void }) {
               ٣
             </span>
             <div>
-              <p className="text-sm font-bold text-navy">اضغط "إضافة"</p>
+              <p className="text-sm font-bold text-navy">اضغط {"\u201C"}إضافة{"\u201D"}</p>
               <p className="mt-0.5 text-xs text-slate-500">سيظهر التطبيق على شاشتك</p>
             </div>
           </div>

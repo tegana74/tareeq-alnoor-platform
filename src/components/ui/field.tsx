@@ -1,8 +1,19 @@
-import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react"
+"use client"
+
+import {
+  cloneElement,
+  isValidElement,
+  useId,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactElement,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from "react"
 import { classNames } from "@/lib/utils"
 
 const baseField =
-  "w-full h-12 rounded-xl border-2 border-slate-200 bg-white px-4 text-sm text-ink placeholder:text-slate-400 outline-none transition-colors focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+  "w-full h-12 rounded-xl border-2 border-border bg-card px-4 text-sm text-ink placeholder:text-muted-foreground outline-none transition-colors focus:border-primary-400 focus:ring-4 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-muted/20 disabled:opacity-60 aria-[invalid=true]:border-danger-strong aria-[invalid=true]:ring-danger-50"
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={classNames(baseField, className)} {...props} />
@@ -14,32 +25,79 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   )
 }
 
-export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className={classNames(baseField, "cursor-pointer", className)} {...props}>
-      {children}
-    </select>
+    <select className={classNames(baseField, "cursor-pointer", className)} {...props} />
   )
 }
 
-interface FieldProps {
+interface FieldProps extends HTMLAttributes<HTMLDivElement> {
   label: string
+  htmlFor?: string
   required?: boolean
   error?: string
   hint?: string
   children: React.ReactNode
 }
 
-export function Field({ label, required, error, hint, children }: FieldProps) {
+/**
+ * تربط الـ label/hint/error بالـ input الأول تلقائيًا عبر aria-describedby و aria-invalid،
+ * ما لم يمرّر المستخدم htmlFor/ids صريحة.
+ */
+export function Field({
+  label,
+  htmlFor,
+  required,
+  error,
+  hint,
+  children,
+  className,
+  ...props
+}: FieldProps) {
+  const autoId = useId()
+  const child = isValidElement(children) ? (children as ReactElement<Record<string, unknown>>) : null
+
+  const rawChildId = child?.props?.id
+  const controlId: string =
+    htmlFor ?? (typeof rawChildId === "string" && rawChildId !== "" ? rawChildId : undefined) ?? `field-${autoId}`
+  const hintId = `${controlId}-hint`
+  const errorId = `${controlId}-error`
+  const describedBy =
+    [hint && !error ? hintId : undefined, error ? errorId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined
+
+  let wiredChild: React.ReactNode = children
+  if (child) {
+    wiredChild = cloneElement(child, {
+      id: controlId,
+      "aria-describedby": describedBy,
+      ...(error ? { "aria-invalid": true } : {}),
+    })
+  }
+
   return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-bold text-navy">
+    <div className={classNames("space-y-1.5", className)} {...props}>
+      <label htmlFor={controlId} className="block text-sm font-bold text-navy">
         {label}
-        {required && <span className="text-rose-500"> *</span>}
+        {required && (
+          <span className="text-rose-500" aria-hidden="true">
+            {" "}*
+          </span>
+        )}
+        {required && <span className="sr-only">مطلوب</span>}
       </label>
-      {children}
-      {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
-      {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
+      {wiredChild}
+      {hint && !error && (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={errorId} role="alert" className="text-xs font-semibold text-rose-600">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

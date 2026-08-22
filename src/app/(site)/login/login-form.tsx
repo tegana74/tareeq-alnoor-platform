@@ -3,8 +3,10 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, LogIn, Phone } from "lucide-react"
+import { LogIn, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Alert } from "@/components/ui/alert"
 import { Field, Input } from "@/components/ui/field"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Logo } from "@/components/ui/logo"
@@ -43,7 +45,8 @@ export function LoginForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/60">
+      <Card className="rounded-3xl shadow-xl">
+        <form onSubmit={handleSubmit} className="space-y-5 p-8">
         <Field label="رقم الهاتف" required>
           <div className="relative">
             <Phone className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -54,7 +57,7 @@ export function LoginForm() {
               placeholder="01xxxxxxxxx"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="pr-11 text-left"
+              className="ps-11 text-left"
               required
             />
           </div>
@@ -71,18 +74,10 @@ export function LoginForm() {
           />
         </Field>
 
-        {error && (
-          <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
-            {error}
-          </p>
-        )}
+        {error && <Alert variant="danger">{error}</Alert>}
 
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <LogIn className="h-5 w-5" />
-          )}
+        <Button type="submit" size="lg" className="w-full" disabled={pending} loading={pending}>
+          <LogIn className="h-5 w-5" />
           تسجيل الدخول
         </Button>
 
@@ -98,7 +93,8 @@ export function LoginForm() {
             أنشئ حساب جديد
           </Link>
         </p>
-      </form>
+        </form>
+      </Card>
     </div>
   )
 }

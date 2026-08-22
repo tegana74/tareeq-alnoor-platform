@@ -91,11 +91,11 @@ export default async function TeacherDashboardPage() {
         <p className="mb-4 text-sm text-slate-500">أضف مرحلة جديدة للمنصة، أو أنشئ كورسك وحدّد سعره</p>
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start">
           <div className="w-full sm:w-72">
-            <p className="mb-2 text-xs font-black text-slate-500">مرحلة تعليمية جديدة</p>
+            <p className="mb-2 text-xs font-bold text-slate-500">مرحلة تعليمية جديدة</p>
             <StageForm />
           </div>
           <div className="w-full">
-            <p className="mb-2 text-xs font-black text-slate-500">كورس جديد بسعر محدد</p>
+            <p className="mb-2 text-xs font-bold text-slate-500">كورس جديد بسعر محدد</p>
             <CourseForm
               years={years.map((y) => ({ id: y.id, name: y.name }))}
               subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
@@ -118,7 +118,7 @@ export default async function TeacherDashboardPage() {
                 <p className="font-black text-navy">{c.name}</p>
                 <p className="text-sm text-slate-500">{c.subject?.name}</p>
               </a>
-              <div className="flex items-center gap-4 text-sm font-bold text-slate-500">
+              <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
                 <span>👥 {c._count.subscriptions} مشترك</span>
                 <span className="rounded-lg bg-amber-100 px-3 py-1 text-xs font-black text-amber-600">
                   {formatPrice(c.price)}

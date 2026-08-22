@@ -38,7 +38,7 @@ export function AppealAdminRow({ appeal }: { appeal: AppealRowData }) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="font-black text-navy">
           {appeal.user.firstName} {appeal.user.lastName}
-          <span className="mr-2 text-sm font-bold text-slate-500">({appeal.user.phone})</span>
+          <span className="ms-2 text-sm font-medium text-slate-500">({appeal.user.phone})</span>
         </p>
         <span
           className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -67,7 +67,7 @@ export function AppealAdminRow({ appeal }: { appeal: AppealRowData }) {
             <span className="font-black text-navy">الرد: </span>
             {appeal.response}
             {appeal.status === "approved" && appeal.extraPoints > 0 && (
-              <span className="mr-2 font-black text-mint-dark">+{appeal.extraPoints} نقطة</span>
+              <span className="ms-2 font-black text-mint-dark">+{appeal.extraPoints} نقطة</span>
             )}
           </div>
         ) : (

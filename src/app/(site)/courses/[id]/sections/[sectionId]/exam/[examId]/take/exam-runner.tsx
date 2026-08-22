@@ -119,7 +119,7 @@ export function ExamRunner({
   if (!q) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-slate-500">لا توجد أسئلة في هذا الاختبار</p>
+        <p className="text-lg font-medium text-slate-500">لا توجد أسئلة في هذا الاختبار</p>
         <a href={`/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
           العودة للدورة ←
         </a>
@@ -165,7 +165,7 @@ export function ExamRunner({
             </button>
           )
         })}
-        <span className="mr-auto flex items-center gap-1 self-center text-sm font-bold text-slate-500">
+        <span className="mr-auto flex items-center gap-1 self-center text-sm font-medium text-slate-500">
           <CheckCircle2 className="h-4 w-4 text-mint" />
           {answeredCount}/{safeQuestions.length}
         </span>
@@ -175,7 +175,7 @@ export function ExamRunner({
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <p className="text-lg font-extrabold leading-8 text-navy">
-            <span className="ml-2 text-amber-500">س{q.points}:</span>
+            <span className="me-2 text-amber-500">س{q.points}:</span>
             {q.text}
           </p>
           <span className="shrink-0 rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-600">

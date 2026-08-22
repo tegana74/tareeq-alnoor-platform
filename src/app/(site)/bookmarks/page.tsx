@@ -4,7 +4,6 @@ import { redirect } from "next/navigation"
 import { BookOpen, Bookmark, ChevronLeft, PlayCircle } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
-import { canAccessCourse } from "@/lib/subscriptions"
 
 export const metadata: Metadata = { title: "الإشارات المرجعية" }
 
@@ -22,6 +21,23 @@ export default async function BookmarksPage() {
     orderBy: { createdAt: "desc" },
   })
 
+  const courseIds = new Set<string>()
+  for (const b of bookmarks) {
+    if (b.video) courseIds.add(b.video.section.courseId)
+    if (b.book) courseIds.add(b.book.section.courseId)
+  }
+
+  const subscriptions = await prisma.subscription.findMany({
+    where: {
+      userId: user.id,
+      courseId: { in: [...courseIds] },
+      status: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
+    select: { courseId: true },
+  })
+  const subscribedCourseIds = new Set(subscriptions.map((s) => s.courseId))
+
   type Entry = {
     kind: "video" | "book"
     id: string
@@ -35,7 +51,7 @@ export default async function BookmarksPage() {
     if (b.video) {
       const v = b.video
       const courseId = v.section.courseId
-      if (v.isFree || (await canAccessCourse(user, courseId))) {
+      if (v.isFree || subscribedCourseIds.has(courseId)) {
         entries.push({
           kind: "video",
           id: v.id,
@@ -50,7 +66,7 @@ export default async function BookmarksPage() {
     if (b.book) {
       const bk = b.book
       const courseId = bk.section.courseId
-      if (bk.isFree || (await canAccessCourse(user, courseId))) {
+      if (bk.isFree || subscribedCourseIds.has(courseId)) {
         entries.push({
           kind: "book",
           id: bk.id,
@@ -71,7 +87,7 @@ export default async function BookmarksPage() {
       {entries.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center">
           <Bookmark className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm font-bold text-slate-500">لا توجد إشارات مرجعية بعد — احفظ محاضرة أو ملفاً</p>
+          <p className="text-sm font-medium text-slate-500">لا توجد إشارات مرجعية بعد — احفظ محاضرة أو ملفاً</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -87,7 +103,7 @@ export default async function BookmarksPage() {
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 font-black text-navy">
                   {item.title}
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
                     {item.kind === "video" ? "محاضرة" : "ملف"}
                   </span>
                 </p>

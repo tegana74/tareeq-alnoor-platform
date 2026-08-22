@@ -15,9 +15,9 @@ export function CouponForm() {
   const router = useRouter()
   const [type, setType] = useState("percentage")
 
-  const [state, formAction, pending] = useActionState(async (prev: State, form: FormData) => {
+  const [state, formAction, pending] = useActionState<State, FormData>(async (_prev, form) => {
     form.set("discountType", type)
-    const res = await createCouponAction(prev, form)
+    const res = await createCouponAction(_prev, form)
     if (res.ok) {
       router.refresh()
       return { ok: true }

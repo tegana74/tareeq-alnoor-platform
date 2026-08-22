@@ -25,7 +25,7 @@ export function MarkAttendance({ sessionId, isLive, attended }: { sessionId: str
   }
   if (state === "loading") {
     return (
-      <span className="flex items-center gap-1.5 text-sm font-black text-slate-500">
+      <span className="flex items-center gap-1.5 text-sm font-bold text-slate-500">
         <Loader2 className="h-4 w-4 animate-spin" /> جارِ تسجيل الحضور...
       </span>
     )
@@ -33,5 +33,5 @@ export function MarkAttendance({ sessionId, isLive, attended }: { sessionId: str
   if (state === "error") {
     return <span className="text-xs font-bold text-rose-600">تعذر تسجيل الحضور — أعد تحميل الصفحة.</span>
   }
-  return <span className="text-sm font-black text-slate-400">{attended ? "حضرت الجلسة" : isLive ? "حضورك يُسجل عند المشاهدة" : "سجل حضورك عند بدء البث"}</span>
+  return <span className="text-sm font-bold text-slate-400">{attended ? "حضرت الجلسة" : isLive ? "حضورك يُسجل عند المشاهدة" : "سجل حضورك عند بدء البث"}</span>
 }

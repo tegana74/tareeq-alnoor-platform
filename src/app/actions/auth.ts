@@ -5,65 +5,24 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import {
-  sendOtp,
-  verifyOtp,
   logout as doLogout,
   SESSION_COOKIE,
   hashPassword,
   getCurrentUser,
+  invalidateOtherSessions,
+  invalidateAllSessions,
 } from "@/lib/auth"
+import { SESSION_MAX_AGE } from "@/lib/constants"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
 import { verifyRecaptcha } from "@/lib/recaptcha"
 
 const phoneSchema = z.string().regex(/^01[0-9]{9}$/, "رقم الهاتف يجب أن يكون 11 رقم يبدأ بـ 01")
-const passwordSchema = z.string().min(6, "كلمة المرور يجب ألا تقل عن 6 أحرف")
 
 export type SendOtpResult =
   | { ok: true; devCode?: string; expiresIn: number }
   | { ok: false; error: string }
 
-export async function sendOtpAction(_prev: unknown, formData: FormData): Promise<SendOtpResult> {
-  const phone = String(formData.get("phone") ?? "")
-  const password = String(formData.get("password") ?? "")
-
-  const phoneCheck = phoneSchema.safeParse(phone)
-  if (!phoneCheck.success) return { ok: false, error: phoneCheck.error.issues[0].message }
-  const passwordCheck = passwordSchema.safeParse(password)
-  if (!passwordCheck.success) return { ok: false, error: passwordCheck.error.issues[0].message }
-
-  const ip = await getClientIp()
-  const rl = await rateLimit(`otp:${ip}:${phone}`, 5, 15 * 60 * 1000)
-  if (!rl.allowed) return { ok: false, error: "طلبات كثيرة، حاول بعد قليل" }
-
-  const captcha = await verifyRecaptcha(formData.get("g-recaptcha-response") as string | null)
-  if (!captcha.ok) return { ok: false, error: captcha.error ?? "فشل التحقق من reCAPTCHA" }
-
-  const result = await sendOtp(phone, password)
-  if (!result.ok) return { ok: false, error: result.error }
-
-  return { ok: true, expiresIn: result.expiresIn, devCode: result.devCode }
-}
-
 export type VerifyOtpResult = { ok: boolean; error?: string }
-
-export async function verifyOtpAction(
-  phone: string,
-  code: string
-): Promise<VerifyOtpResult> {
-  const result = await verifyOtp(phone, code)
-  if (!result.ok) return { ok: false, error: result.error }
-
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, result.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60,
-  })
-
-  return { ok: true }
-}
 
 export async function directLoginAction(phone: string, password: string): Promise<VerifyOtpResult> {
   const normalized = phone.replace(/[^0-9+]/g, "")
@@ -107,7 +66,7 @@ export async function directLoginAction(phone: string, password: string): Promis
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: SESSION_MAX_AGE,
   })
 
   return { ok: true }
@@ -135,11 +94,20 @@ export async function changePasswordAction(
   const user = await getCurrentUser()
   if (!user) return { ok: false, error: "يجب تسجيل الدخول أولاً" }
 
-  const valid = await (await import("@/lib/auth")).verifyPassword(currentPassword, user.password)
+  const fullUser = await prisma.user.findUnique({ where: { id: user.id }, select: { password: true } })
+  if (!fullUser) return { ok: false, error: "يجب تسجيل الدخول أولاً" }
+
+  const valid = await (await import("@/lib/auth")).verifyPassword(currentPassword, fullUser.password)
   if (!valid) return { ok: false, error: "كلمة المرور الحالية غير صحيحة" }
 
   const hashed = await hashPassword(newPassword)
   await prisma.user.update({ where: { id: user.id }, data: { password: hashed } })
+
+  const cookieStore = await cookies()
+  const currentToken = cookieStore.get(SESSION_COOKIE)?.value
+  if (currentToken) {
+    await invalidateOtherSessions(user.id, currentToken)
+  }
 
   return { ok: true }
 }
@@ -183,6 +151,11 @@ export async function resetPasswordAction(
   const normalized = phone.replace(/[^0-9+]/g, "")
   const hashed = await hashPassword(newPassword)
   await prisma.user.update({ where: { phone: normalized }, data: { password: hashed } })
+
+  const user = await prisma.user.findUnique({ where: { phone: normalized }, select: { id: true } })
+  if (user) {
+    await invalidateAllSessions(user.id)
+  }
 
   return { ok: true }
 }
@@ -235,7 +208,6 @@ export async function registerAction(_prev: unknown, formData: FormData): Promis
 
   const password = await hashPassword(data.password)
 
-  // تقسيم الاسم الكامل إلى اسم أول واسم أخير
   const nameParts = data.name.split(/\s+/)
   const firstName = nameParts[0]
   const lastName = nameParts.slice(1).join(" ") || firstName

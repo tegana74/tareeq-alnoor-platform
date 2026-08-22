@@ -26,14 +26,19 @@ export default async function AdminTeacherStatsPage({
 
   const courseIds = teacher.courses.map((c) => c.id)
 
-  const [subscriptions, invoices, commissionSetting, adminCommissionSetting] = await Promise.all([
+  const [subscriptions, revenueResult, invoices, commissionSetting, adminCommissionSetting] = await Promise.all([
     prisma.subscription.findMany({
       where: { courseId: { in: courseIds } },
       select: { userId: true, user: { select: { year: { select: { id: true, name: true } } } } },
     }),
+    prisma.invoice.aggregate({
+      where: { status: "PAID", type: "SUBSCRIBE", courseId: { in: courseIds } },
+      _sum: { amount: true },
+    }),
     prisma.invoice.findMany({
       where: { status: "PAID", type: "SUBSCRIBE", courseId: { in: courseIds } },
       select: { amount: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.setting.findUnique({ where: { key: "finance.teacherCommission" } }),
     prisma.setting.findUnique({ where: { key: "finance.adminCommission" } }),
@@ -41,26 +46,26 @@ export default async function AdminTeacherStatsPage({
 
   const commission = Math.max(0, Math.min(100, Number(commissionSetting?.value ?? "50")))
   const adminCommission = Math.max(0, Math.min(100, Number(adminCommissionSetting?.value ?? "50")))
-  const totalStudents = new Set(subscriptions.map((s) => s.userId)).size
 
+  const uniqueUserIds = new Set<string>()
   const byYear = new Map<string, { id: string; name: string; count: number }>()
-  const seen = new Set<string>()
   for (const s of subscriptions) {
+    if (uniqueUserIds.has(s.userId)) continue
+    uniqueUserIds.add(s.userId)
     const y = s.user.year
     const key = y?.id ?? "none"
-    if (seen.has(s.userId)) continue
-    seen.add(s.userId)
     const row = byYear.get(key) ?? { id: key, name: y?.name ?? "بدون مرحلة", count: 0 }
     row.count += 1
     byYear.set(key, row)
   }
+  const totalStudents = uniqueUserIds.size
   const stages = [...byYear.values()].sort((a, b) => b.count - a.count)
 
+  const totalRevenue = Number(revenueResult._sum.amount ?? 0)
+
   const monthly = new Map<string, { label: string; total: number }>()
-  let totalRevenue = 0
   for (const inv of invoices) {
     const amount = Number(inv.amount)
-    totalRevenue += amount
     const date = new Date(inv.createdAt)
     const key = `${date.getFullYear()}-${date.getMonth()}`
     const label = date.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })
@@ -79,7 +84,7 @@ export default async function AdminTeacherStatsPage({
         {icon}
       </div>
       <p className="text-2xl font-black text-navy">{value}</p>
-      <p className="text-sm font-bold text-slate-500">{label}</p>
+      <p className="text-sm font-medium text-slate-500">{label}</p>
       {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
     </div>
   )
@@ -88,7 +93,7 @@ export default async function AdminTeacherStatsPage({
     <div className="space-y-6">
       <Link
         href="/admin/teachers"
-        className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-amber-600"
+        className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-amber-600"
       >
         <ChevronLeft className="h-4 w-4" />
         المعلمون
@@ -184,7 +189,7 @@ export default async function AdminTeacherStatsPage({
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-100">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-xs font-black text-slate-500">
+                <thead className="bg-slate-50 text-xs font-bold text-slate-500">
                   <tr>
                     <th className="px-4 py-2 text-right">الشهر</th>
                     <th className="px-4 py-2 text-right">الإيرادات</th>

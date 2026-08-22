@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { isSubscribed } from "@/lib/subscriptions"
 import { formatPrice } from "@/lib/utils"
+import { PAYMENT } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
 import { PaymentForm } from "./payment-form"
 import { WalletPayButton } from "./wallet-pay-button"
@@ -104,8 +105,8 @@ export default async function SubscribePage({ params }: SubscribePageProps) {
           courseId={courseId}
           courseName={course.name}
           price={coursePrice}
-          vodafone={settingsMap["payment.vodafone"] ?? "01021416244"}
-          instapay={settingsMap["payment.instapay"] ?? "01116544383"}
+          vodafone={settingsMap["payment.vodafone"] ?? PAYMENT.vodafoneCash}
+          instapay={settingsMap["payment.instapay"] ?? PAYMENT.instaPay}
           walletBalance={walletBalance}
         />
       )}

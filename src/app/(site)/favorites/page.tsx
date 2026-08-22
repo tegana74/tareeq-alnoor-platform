@@ -55,7 +55,7 @@ export default async function FavoritesPage() {
       {cards.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center">
           <Heart className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm font-bold text-slate-500">لا توجد كورسات مفضلة بعد</p>
+          <p className="text-sm font-medium text-slate-500">لا توجد كورسات مفضلة بعد</p>
           <Link href="/courses" className="mt-2 inline-block text-sm font-black text-amber-600 hover:underline">
             تصفّح الكورسات
           </Link>

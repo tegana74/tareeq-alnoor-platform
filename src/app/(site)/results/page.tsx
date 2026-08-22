@@ -5,6 +5,8 @@ import { BarChart3, ChevronLeft, Target, TrendingUp } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { classNames, formatDateTime } from "@/lib/utils"
+import { Badge, type BadgeVariant } from "@/components/ui/badge"
+import { EmptyState } from "@/components/ui/empty-state"
 
 export const metadata: Metadata = { title: "تحليل نتائجي" }
 
@@ -94,17 +96,17 @@ export default async function ResultsPage() {
       {/* البطاقات */}
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <div className="rounded-3xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-bold text-slate-500">متوسط الدرجات</p>
+          <p className="text-xs font-medium text-slate-500">متوسط الدرجات</p>
           <p className="mt-1 text-3xl font-black text-navy">{gradedCount > 0 ? `${avg}%` : "—"}</p>
           <p className="mt-1 text-xs text-slate-400">{gradedCount} امتحان مكتمل</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-bold text-slate-500">اختبارات الممارسة</p>
+          <p className="text-xs font-medium text-slate-500">اختبارات الممارسة</p>
           <p className="mt-1 text-3xl font-black text-mint-dark">{practiceAttempts.length}</p>
           <p className="mt-1 text-xs text-slate-400">من بنك الأسئلة</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-bold text-slate-500">أضعف نقطة</p>
+          <p className="text-xs font-medium text-slate-500">أضعف نقطة</p>
           <p className="mt-1 truncate text-sm font-black text-navy">
             {weakPoints[0]?.text ?? "لا توجد أخطاء بعد"}
           </p>
@@ -131,7 +133,7 @@ export default async function ResultsPage() {
                       <span className="font-bold text-navy">
                         {s.icon ?? ""} {s.name}
                       </span>
-                      <span className="font-black text-slate-500">{avgSubject}%</span>
+                      <span className="font-bold text-slate-500">{avgSubject}%</span>
                     </div>
                     <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                       <div
@@ -156,7 +158,11 @@ export default async function ResultsPage() {
             نقاط الضعف
           </h2>
           {weakPoints.length === 0 ? (
-            <p className="text-sm text-slate-400">ممتاز! لا توجد نقاط ضعف تُذكر</p>
+            <EmptyState
+              title="ممتاز! لا توجد نقاط ضعف تُذكر"
+              className="py-6"
+              icon={<Target className="h-7 w-7 text-success-strong" />}
+            />
           ) : (
             <ul className="space-y-2">
               {weakPoints.map((w, i) => (
@@ -176,7 +182,7 @@ export default async function ResultsPage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 font-black text-navy">سجل الامتحانات</h2>
         {graded.length === 0 ? (
-          <p className="text-sm text-slate-400">لا توجد امتحانات مكتملة بعد</p>
+          <EmptyState title="لا توجد امتحانات مكتملة بعد" className="py-6" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -193,22 +199,18 @@ export default async function ResultsPage() {
                   const s = Number(a.score)
                   const t = Number(a.totalScore)
                   const p = pct(s, t)
+                  const scoreVariant: BadgeVariant = p >= 70 ? "success" : p >= 50 ? "warning" : "danger"
                   return (
                     <tr key={a.id} className="border-b border-slate-50 last:border-0">
                       <td className="py-2.5 font-bold text-navy">{a.exam?.title}</td>
                       <td className="py-2.5">
-                        <span
-                          className={classNames(
-                            "rounded-full px-2.5 py-1 text-xs font-black",
-                            p >= 70 ? "bg-mint-50 text-mint-dark" : p >= 50 ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
-                          )}
-                        >
+                        <Badge variant={scoreVariant} size="md">
                           {s}/{t} ({p}%)
-                        </span>
+                        </Badge>
                       </td>
                       <td className="py-2.5 text-xs text-slate-500">{a.finishedAt ? formatDateTime(a.finishedAt) : "—"}</td>
                       <td className="py-2.5">
-                        <span className="text-xs font-bold text-slate-400">مكتمل</span>
+                        <span className="text-xs font-medium text-slate-400">مكتمل</span>
                       </td>
                     </tr>
                   )

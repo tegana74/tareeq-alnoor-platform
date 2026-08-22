@@ -2,11 +2,13 @@
 
 import { useActionState, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, CheckCircle2, Copy, ImagePlus, Loader2, Send } from "lucide-react"
+import { CheckCircle2, Copy, ImagePlus, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Alert } from "@/components/ui/alert"
 import { Field, Input } from "@/components/ui/field"
 import { chargeWalletAction, type SubmitPaymentResult } from "@/app/actions/payments"
 import { classNames } from "@/lib/utils"
+import { uploadFile as clientUpload } from "@/lib/upload-client"
 
 interface WalletChargeFormProps {
   vodafone: string
@@ -39,12 +41,8 @@ export function WalletChargeForm({ vodafone, instapay }: WalletChargeFormProps) 
     if (!file) return
     setUploading(true)
     try {
-      const body = new FormData()
-      body.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body })
-      const data = await res.json()
-      if (res.ok) setImageUrl(data.url)
-      else alert(data.error ?? "فشل رفع الصورة")
+      const result = await clientUpload(file, "file")
+      setImageUrl(result.url)
     } catch {
       alert("حدث خطأ في رفع الصورة")
     } finally {
@@ -168,15 +166,14 @@ export function WalletChargeForm({ vodafone, instapay }: WalletChargeFormProps) 
         </Field>
 
         {state.error && (
-          <div className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-600 sm:col-span-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            {state.error}
+          <div className="sm:col-span-2">
+            <Alert variant="danger">{state.error}</Alert>
           </div>
         )}
 
         <div className="sm:col-span-2">
-          <Button type="submit" size="lg" disabled={pending || uploading} className="w-full">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button type="submit" size="lg" className="w-full" disabled={pending || uploading} loading={pending}>
+            <Send className="h-4 w-4" />
             {pending ? "جارٍ الإرسال..." : "تأكيد طلب الشحن"}
           </Button>
         </div>

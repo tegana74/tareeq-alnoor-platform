@@ -61,7 +61,7 @@ export default async function ExemptionsPage() {
               {r.details && <p className="text-sm text-slate-600">{r.details}</p>}
               <p className="mt-2 text-xs text-slate-400">
                 {formatDateTime(r.createdAt)}
-                {r.reviewedAt && <span className="mr-2">· تمت المراجعة {formatDateTime(r.reviewedAt)}</span>}
+                {r.reviewedAt && <span className="ms-2">· تمت المراجعة {formatDateTime(r.reviewedAt)}</span>}
               </p>
             </div>
           ))}

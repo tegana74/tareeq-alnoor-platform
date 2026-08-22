@@ -1,14 +1,7 @@
-const CACHE_NAME = "tareeq-alnoor-v2"
-const STATIC_CACHE = "tareeq-static-v2"
-const DYNAMIC_CACHE = "tareeq-dynamic-v2"
+const STATIC_CACHE = "tareeq-static-v3"
+const DYNAMIC_CACHE = "tareeq-dynamic-v3"
 
-const STATIC_ASSETS = [
-  "/",
-  "/courses",
-  "/practice",
-  "/live",
-  "/results",
-  "/store",
+const PRECACHE_ASSETS = [
   "/manifest.json",
   "/favicon.ico",
   "/icons/icon-192x192.png",
@@ -17,7 +10,7 @@ const STATIC_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_ASSETS))
   )
   self.skipWaiting()
 })
@@ -40,25 +33,39 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url)
 
   if (request.method !== "GET") return
-  if (url.pathname.startsWith("/api/")) return
-  if (url.pathname.startsWith("/admin")) return
-  if (url.pathname.startsWith("/teacher")) return
-  if (url.pathname.startsWith("/profile")) return
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request)
-        .then((response) => {
-          if (!response || response.status !== 200) return response
-          const clone = response.clone()
-          caches.open(DYNAMIC_CACHE).then((cache) => {
-            cache.put(request, clone)
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/images/") ||
+    /\.(png|jpg|jpeg|svg|webp|woff2?|ico|css|js)$/.test(url.pathname)
+
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const fetchPromise = fetch(request)
+          .then((response) => {
+            if (response && response.status === 200) {
+              const clone = response.clone()
+              caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, clone))
+            }
+            return response
           })
-          return response
-        })
-        .catch(() => cached)
+          .catch(() => cached)
+        return cached || fetchPromise
+      })
+    )
+    return
+  }
 
-      return cached || fetchPromise
-    })
-  )
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => response)
+        .catch(() =>
+          caches.match(request).then((c) => c || caches.match("/offline"))
+        )
+    )
+    return
+  }
 })

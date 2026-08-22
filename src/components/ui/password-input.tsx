@@ -12,7 +12,7 @@ export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>
       <Input
         {...props}
         type={visible ? "text" : "password"}
-        className={`pr-9 pl-9 text-left ${props.className ?? ""}`}
+        className={`ps-9 pe-9 text-left ${props.className ?? ""}`}
       />
       <button
         type="button"

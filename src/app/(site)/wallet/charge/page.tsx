@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
+import { PAYMENT } from "@/lib/constants"
 import { WalletChargeForm } from "./charge-form"
 
 export const metadata: Metadata = { title: "شحن المحفظة" }
@@ -37,8 +38,8 @@ export default async function WalletChargePage() {
       </div>
 
       <WalletChargeForm
-        vodafone={settingsMap["payment.vodafone"] ?? "01021416244"}
-        instapay={settingsMap["payment.instapay"] ?? "01116544383"}
+        vodafone={settingsMap["payment.vodafone"] ?? PAYMENT.vodafoneCash}
+        instapay={settingsMap["payment.instapay"] ?? PAYMENT.instaPay}
       />
     </div>
   )

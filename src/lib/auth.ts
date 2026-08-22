@@ -2,14 +2,34 @@ import { cookies } from "next/headers"
 import { cache } from "react"
 import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
-import { randomBytes, randomInt } from "node:crypto"
+import { randomBytes, randomInt, createHash } from "node:crypto"
 import { prisma } from "@/lib/prisma"
 import { Role } from "@/generated/prisma/enums"
 import { sendSms } from "@/lib/sms"
 import { getClientIp } from "@/lib/rate-limit"
+import { SESSION_DAYS, OTP } from "@/lib/constants"
 
 export const SESSION_COOKIE = "tn_session"
-const SESSION_DAYS = 30
+
+export function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex")
+}
+
+let lastCleanupAt = 0
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+const CLEANUP_PROBABILITY = 0.02
+
+async function maybeCleanupExpiredSessions() {
+  const now = Date.now()
+  if (now - lastCleanupAt < CLEANUP_INTERVAL_MS) return
+  if (Math.random() > CLEANUP_PROBABILITY) return
+  lastCleanupAt = now
+  try {
+    await prisma.session.deleteMany({ where: { expiresAt: { lt: new Date() } } })
+  } catch {
+    // silent - cleanup is best-effort
+  }
+}
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10)
@@ -36,10 +56,10 @@ export async function sendOtp(phone: string, password: string) {
     where: {
       phone: normalized,
       success: false,
-      createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) },
+      createdAt: { gte: new Date(Date.now() - OTP.lockoutMinutes * 60 * 1000) },
     },
   })
-  if (recentFailures >= 5) {
+  if (recentFailures >= OTP.maxFailuresForLockout) {
     return { ok: false as const, error: "محاولات دخول كثيرة، حاول بعد 15 دقيقة" }
   }
 
@@ -62,11 +82,11 @@ export async function sendOtp(phone: string, password: string) {
     return { ok: false as const, error: "كلمة المرور غير صحيحة" }
   }
 
-  // منع إرسال أكثر من 3 أكواد لكل رقم خلال 5 دقائق
+  // منع إرسال أكثر من أكواد لكل رقم خلال النافذة المحددة
   const recentCodes = await prisma.otpCode.count({
-    where: { phone: normalized, purpose: "login", createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } },
+    where: { phone: normalized, purpose: "login", createdAt: { gte: new Date(Date.now() - OTP.windowMinutes * 60 * 1000) } },
   })
-  if (recentCodes >= 3) {
+  if (recentCodes >= OTP.maxCodesPerWindow) {
     return { ok: false as const, error: "أرسلت الكثير من الأكواد، حاول بعد قليل" }
   }
 
@@ -77,7 +97,7 @@ export async function sendOtp(phone: string, password: string) {
   })
 
   const code = generateOtp()
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 دقائق
+  const expiresAt = new Date(Date.now() + OTP.expiryMinutes * 60 * 1000)
 
   await prisma.otpCode.create({
     data: { phone: normalized, code, expiresAt, purpose: "login" },
@@ -110,9 +130,9 @@ export async function sendLinkOtp(phone: string) {
   }
 
   const recentCodes = await prisma.otpCode.count({
-    where: { phone: normalized, purpose: "link", createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } },
+    where: { phone: normalized, purpose: "link", createdAt: { gte: new Date(Date.now() - OTP.windowMinutes * 60 * 1000) } },
   })
-  if (recentCodes >= 3) {
+  if (recentCodes >= OTP.maxCodesPerWindow) {
     return { ok: false as const, error: "أرسلت الكثير من الأكواد، حاول بعد قليل" }
   }
 
@@ -122,7 +142,7 @@ export async function sendLinkOtp(phone: string) {
   })
 
   const code = generateOtp()
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
+  const expiresAt = new Date(Date.now() + OTP.expiryMinutes * 60 * 1000)
 
   await prisma.otpCode.create({
     data: { phone: normalized, code, expiresAt, purpose: "link" },
@@ -131,7 +151,7 @@ export async function sendLinkOtp(phone: string) {
   const isDev = process.env.NODE_ENV === "development"
   await sendSms(normalized, `كود ربط ولي الأمر في منصة طريق النور: ${code}`)
 
-  return { ok: true as const, expiresIn: 300, devCode: isDev ? code : undefined }
+  return { ok: true as const, expiresIn: OTP.expiryMinutes * 60, devCode: isDev ? code : undefined }
 }
 
 /**
@@ -148,14 +168,14 @@ export async function verifyLinkOtp(phone: string, code: string) {
   if (!otp || otp.expiresAt < new Date()) {
     return { ok: false as const, error: "الكود غير صحيح أو منتهي الصلاحية" }
   }
-  if (otp.attempts >= 5) {
+  if (otp.attempts >= OTP.maxAttempts) {
     await prisma.otpCode.update({ where: { id: otp.id }, data: { used: true } })
     return { ok: false as const, error: "الكود غير صحيح أو منتهي الصلاحية" }
   }
   if (otp.code !== code) {
     const attempts = otp.attempts + 1
     await prisma.otpCode.update({ where: { id: otp.id }, data: { attempts } })
-    if (attempts >= 5) {
+    if (attempts >= OTP.maxAttempts) {
       await prisma.otpCode.update({ where: { id: otp.id }, data: { used: true } })
       return { ok: false as const, error: "محاولات كثيرة، أعد إرسال كود جديد" }
     }
@@ -180,7 +200,7 @@ export async function verifyOtp(phone: string, code: string) {
   if (!otp || otp.expiresAt < new Date()) {
     return { ok: false as const, error: "الكود غير صحيح أو منتهي الصلاحية" }
   }
-  if (otp.attempts >= 5) {
+  if (otp.attempts >= OTP.maxAttempts) {
     await prisma.otpCode.update({ where: { id: otp.id }, data: { used: true } })
     return { ok: false as const, error: "الكود غير صحيح أو منتهي الصلاحية" }
   }
@@ -190,7 +210,7 @@ export async function verifyOtp(phone: string, code: string) {
       where: { id: otp.id },
       data: { attempts },
     })
-    if (attempts >= 5) {
+    if (attempts >= OTP.maxAttempts) {
       await prisma.otpCode.update({ where: { id: otp.id }, data: { used: true } })
       return { ok: false as const, error: "محاولات كثيرة، أعد إرسال كود جديد" }
     }
@@ -210,14 +230,15 @@ export async function verifyOtp(phone: string, code: string) {
 }
 
 export async function createSession(userId: string) {
-  const token = randomBytes(32).toString("hex")
+  const rawToken = randomBytes(32).toString("hex")
+  const hashedToken = hashSessionToken(rawToken)
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000)
 
   await prisma.session.create({
-    data: { token, userId, expiresAt },
+    data: { token: hashedToken, userId, expiresAt },
   })
 
-  return token
+  return rawToken
 }
 
 export function publicUser(user: {
@@ -258,17 +279,35 @@ export type PublicUser = ReturnType<typeof publicUser>
  */
 export const getCurrentUser = cache(async () => {
   const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (!token) return null
+  const rawToken = cookieStore.get(SESSION_COOKIE)?.value
+  if (!rawToken) return null
+
+  maybeCleanupExpiredSessions()
+
+  const hashedToken = hashSessionToken(rawToken)
 
   const session = await prisma.session.findUnique({
-    where: { token },
-    include: {
+    where: { token: hashedToken },
+    select: {
+      expiresAt: true,
       user: {
-        include: {
-          year: true,
-          department: true,
-          teacherProfile: true,
+        select: {
+          id: true,
+          phone: true,
+          firstName: true,
+          middleName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          avatar: true,
+          isActive: true,
+          isBlocked: true,
+          walletBalance: true,
+          points: true,
+          yearId: true,
+          departmentId: true,
+          teacherId: true,
+          createdAt: true,
         },
       },
     },
@@ -301,9 +340,21 @@ export async function requireRole(...roles: Role[]) {
 
 export async function logout() {
   const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (token) {
-    await prisma.session.deleteMany({ where: { token } })
+  const rawToken = cookieStore.get(SESSION_COOKIE)?.value
+  if (rawToken) {
+    const hashedToken = hashSessionToken(rawToken)
+    await prisma.session.deleteMany({ where: { token: hashedToken } })
   }
   cookieStore.delete(SESSION_COOKIE)
+}
+
+export async function invalidateOtherSessions(userId: string, currentToken: string) {
+  const hashedCurrentToken = hashSessionToken(currentToken)
+  await prisma.session.deleteMany({
+    where: { userId, token: { not: hashedCurrentToken } },
+  })
+}
+
+export async function invalidateAllSessions(userId: string) {
+  await prisma.session.deleteMany({ where: { userId } })
 }

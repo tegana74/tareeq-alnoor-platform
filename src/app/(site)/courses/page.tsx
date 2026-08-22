@@ -3,10 +3,12 @@ import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { CourseCard } from "@/components/ui/course-card"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { getCurrentUser } from "@/lib/auth"
 import { Search } from "lucide-react"
 
 export const metadata: Metadata = { title: "الكورسات" }
+export const revalidate = 300
 
 interface CoursesPageProps {
   searchParams: Promise<{ year?: string; subject?: string; teacher?: string; q?: string }>
@@ -88,7 +90,7 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
           name="q"
           defaultValue={q}
           placeholder="ابحث عن كورس..."
-          className="h-13 w-full rounded-2xl border-2 border-slate-200 bg-white pr-12 pl-4 text-sm outline-none transition-colors focus:border-amber-400"
+          className="h-13 w-full rounded-2xl border-2 border-slate-200 bg-white ps-12 pe-4 text-sm outline-none transition-colors focus:border-amber-400"
         />
       </form>
 
@@ -170,11 +172,12 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-200 bg-white py-20 text-center">
-              <span className="mb-4 text-6xl">🔍</span>
-              <h3 className="text-lg font-extrabold text-navy">لا توجد نتائج</h3>
-              <p className="mt-1 text-sm text-slate-500">جرّب تعديل الفلاتر أو البحث بكلمة مختلفة</p>
-            </div>
+            <EmptyState
+              title="لا توجد نتائج"
+              description="جرّب تعديل الفلاتر أو البحث بكلمة مختلفة"
+              icon={<span className="text-3xl">🔍</span>}
+              className="rounded-3xl border-2 border-dashed border-border bg-card py-20"
+            />
           )}
         </div>
       </div>

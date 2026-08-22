@@ -112,13 +112,13 @@ export default async function AdminDashboard() {
         {cards.map((card) => (
           <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-500">{card.label}</p>
+              <p className="text-sm font-medium text-slate-500">{card.label}</p>
               <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.color}`}>
                 <card.icon className="h-5 w-5" />
               </span>
             </div>
             <p className="mt-2 text-2xl font-black text-navy">{card.value}</p>
-            <p className="mt-0.5 text-xs font-bold text-slate-400">{card.sub}</p>
+            <p className="mt-0.5 text-xs font-medium text-slate-400">{card.sub}</p>
           </div>
         ))}
       </div>

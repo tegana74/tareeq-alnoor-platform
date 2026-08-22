@@ -4,6 +4,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { isSubscribed } from "@/lib/subscriptions"
+import { SUBSCRIPTION_DAYS } from "@/lib/constants"
 
 const proofSchema = z.object({
   courseId: z.string().min(1),
@@ -75,7 +76,7 @@ export async function payFromWalletAction(
         courseId,
         price,
         status: "active",
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000),
       },
     })
 
@@ -195,15 +196,15 @@ export async function submitPaymentAction(
     return { ok: false, error: "تم استخدام هذا الكوبون من قبل" }
   }
 
-  const admins = await prisma.user.findMany({ where: { role: "ADMIN" } })
-  for (const admin of admins) {
-    await prisma.notification.create({
-      data: {
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } })
+  if (admins.length > 0) {
+    await prisma.notification.createMany({
+      data: admins.map((admin) => ({
         userId: admin.id,
         title: "طلب دفع جديد",
         body: `${user.firstName} يريد الاشتراك في ${course.name} بقيمة ${invoice.amount} ج.م`,
         link: "/admin/payments",
-      },
+      })),
     })
   }
 
@@ -312,15 +313,15 @@ export async function chargeWalletAction(
     })
   }
 
-  const admins = await prisma.user.findMany({ where: { role: "ADMIN" } })
-  for (const admin of admins) {
-    await prisma.notification.create({
-      data: {
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } })
+  if (admins.length > 0) {
+    await prisma.notification.createMany({
+      data: admins.map((admin) => ({
         userId: admin.id,
         title: "طلب شحن محفظة",
         body: `${user.firstName} يريد شحن محفظته بقيمة ${amount} ج.م`,
         link: "/admin/payments",
-      },
+      })),
     })
   }
 

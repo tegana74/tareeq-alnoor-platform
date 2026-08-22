@@ -37,7 +37,7 @@ export default async function AdminExemptionsPage() {
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="font-black text-navy">
                   {r.user.firstName} {r.user.lastName}
-                  <span className="mr-2 text-sm font-bold text-slate-500" dir="ltr">({r.user.phone})</span>
+                  <span className="ms-2 text-sm font-medium text-slate-500" dir="ltr">({r.user.phone})</span>
                 </p>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -55,7 +55,7 @@ export default async function AdminExemptionsPage() {
               {r.details && <p className="mt-1 text-sm text-slate-600">{r.details}</p>}
               <p className="mt-2 text-xs text-slate-400">
                 {formatDateTime(r.createdAt)}
-                {r.reviewedAt && <span className="mr-2">· مراجعة {formatDateTime(r.reviewedAt)}</span>}
+                {r.reviewedAt && <span className="ms-2">· مراجعة {formatDateTime(r.reviewedAt)}</span>}
               </p>
 
               {r.status === "pending" && (

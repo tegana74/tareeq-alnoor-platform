@@ -38,7 +38,7 @@ export default async function NotificationsPage() {
       {notifications.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center">
           <Bell className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm font-bold text-slate-500">لا توجد إشعارات بعد</p>
+          <p className="text-sm font-medium text-slate-500">لا توجد إشعارات بعد</p>
           <p className="mt-1 text-xs text-slate-400">ستصلك الإشعارات عند جدولة بث جديد، أو رد على منشورك، أو تصحيح إجابتك</p>
         </div>
       ) : (
@@ -57,7 +57,7 @@ export default async function NotificationsPage() {
                 <div className="min-w-0">
                   <p className={`text-sm font-black ${n.isRead ? "text-navy" : "text-amber-800"}`}>{n.title}</p>
                   {n.body && <p className="mt-1 text-xs leading-6 text-slate-500">{n.body}</p>}
-                  <p className="mt-2 text-[11px] font-bold text-slate-400">{formatDateTime(n.createdAt)}</p>
+                  <p className="mt-2 text-[11px] font-medium text-slate-400">{formatDateTime(n.createdAt)}</p>
                 </div>
                 {!n.isRead && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />}
               </div>

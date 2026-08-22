@@ -107,7 +107,7 @@ export default async function StudyPage({ params }: StudyPageProps) {
                 </span>
                 {section.name}
               </h2>
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-xs font-medium text-slate-500">
                 {section.videos.length + section.books.length + section.exams.length} عنصر
               </span>
             </div>

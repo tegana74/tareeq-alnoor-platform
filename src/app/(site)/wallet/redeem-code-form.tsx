@@ -36,8 +36,8 @@ export function RedeemCodeForm() {
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />} شحن
         </button>
       </div>
-      {state.error && <p className="mt-2 text-xs font-black text-rose-200">{state.error}</p>}
-      {state.ok && <p className="mt-2 text-xs font-black text-mint-200">تم شحن المحفظة بنجاح</p>}
+      {state.error && <p className="mt-2 text-xs font-medium text-rose-600">{state.error}</p>}
+      {state.ok && <p className="mt-2 text-xs font-medium text-mint-dark">تم شحن المحفظة بنجاح</p>}
     </form>
   )
 }

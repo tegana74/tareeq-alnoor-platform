@@ -34,7 +34,7 @@ export default async function ExamTakePage({ params }: ExamTakePageProps) {
   if (!exam.questions || exam.questions.length === 0) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-slate-500">لا توجد أسئلة متاحة لهذا الاختبار حالياً</p>
+        <p className="text-lg font-medium text-slate-500">لا توجد أسئلة متاحة لهذا الاختبار حالياً</p>
         <a href={`/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
           العودة للدورة ←
         </a>

@@ -53,7 +53,7 @@ export default async function AdminCoursesPage() {
                 />
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-4 text-xs font-bold text-slate-500">
+            <div className="mt-3 flex items-center gap-4 text-xs font-medium text-slate-500">
               <span>👥 {c._count.subscriptions} مشترك</span>
               <span className={c.isActive ? "text-mint-dark" : "text-rose-500"}>
                 {c.isActive ? "● نشط" : "○ موقوف"}

@@ -3,6 +3,7 @@
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser, hashPassword } from "@/lib/auth"
+import { SUBSCRIPTION_DAYS } from "@/lib/constants"
 
 export type AdminUsersResult = { ok: boolean; error?: string }
 
@@ -220,10 +221,9 @@ export async function deleteTeacherAction(_prev: unknown, formData: FormData): P
       await tx.session.deleteMany({ where: { userId: teacher.user!.id } })
     }
 
-    const courses = await tx.course.findMany({ where: { teacherId: id } })
-    for (const course of courses) {
-      await tx.section.deleteMany({ where: { courseId: course.id } })
-    }
+    await tx.section.deleteMany({
+      where: { course: { teacherId: id } },
+    })
     await tx.course.deleteMany({ where: { teacherId: id } })
     await tx.liveSession.deleteMany({ where: { teacherId: id } })
 
@@ -262,9 +262,9 @@ export async function grantCourseAction(_prev: unknown, formData: FormData): Pro
         courseId,
         price: 0,
         status: "active",
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000),
       },
-      update: { status: "active", expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) },
+      update: { status: "active", expiresAt: new Date(Date.now() + SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000) },
     }),
     prisma.notification.create({
       data: {

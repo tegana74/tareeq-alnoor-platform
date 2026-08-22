@@ -56,7 +56,7 @@ export default async function PracticePage() {
       {subjects.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center">
           <GraduationCap className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="font-bold text-slate-500">بنك الأسئلة قيد التجهيز — عد قريباً</p>
+          <p className="font-medium text-slate-500">بنك الأسئلة قيد التجهيز — عد قريباً</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -69,7 +69,7 @@ export default async function PracticePage() {
                     <span className="text-2xl">{subject.icon ?? "📚"}</span>
                     {subject.name}
                   </h2>
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-medium text-slate-500">
                     {subject.bankChapters.reduce((a, c) => a + c._count.questions, 0)} سؤال
                   </span>
                 </div>

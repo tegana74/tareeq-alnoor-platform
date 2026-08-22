@@ -57,7 +57,7 @@ export default async function StoreLocatorPage({
       {filtered.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center">
           <MapPin className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm font-bold text-slate-500">
+          <p className="text-sm font-medium text-slate-500">
             {stores.length === 0 ? "لا توجد منافذ بيع بعد" : "لا توجد منافذ في هذه المحافظة"}
           </p>
         </div>

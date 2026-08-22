@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
+import { SUBSCRIPTION_DAYS } from "@/lib/constants"
 
 function requireAdmin() {
   return getCurrentUser().then((user) => {
@@ -53,7 +54,7 @@ export async function approveInvoiceAction(invoiceId: string) {
             courseId: invoice.courseId,
             price: amount,
             status: "active",
-            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000),
           },
         })
       } else if (invoice.type === "WALLET_CHARGE") {

@@ -40,7 +40,7 @@ export function LiveCountdown({
   }
 
   if (now >= end) {
-    return <p className="text-sm font-bold text-slate-500">انتهت الجلسة.</p>
+    return <p className="text-sm font-medium text-slate-500">انتهت الجلسة.</p>
   }
 
   if (diff <= 0) {
@@ -67,7 +67,7 @@ export function LiveCountdown({
             <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-2xl font-black text-navy shadow">
               {String(c.value).padStart(2, "0")}
             </span>
-            <span className="mt-1 text-[11px] font-bold text-slate-500" dir="rtl">
+            <span className="mt-1 text-[11px] font-medium text-slate-500" dir="rtl">
               {c.label}
             </span>
           </div>

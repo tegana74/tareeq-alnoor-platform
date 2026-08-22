@@ -41,10 +41,34 @@ export async function getSupabaseSignedUrl(key: string, expiresInSec = 3600): Pr
   return data.signedUrl
 }
 
+export async function getSupabaseSignedUploadUrl(
+  key: string,
+  expiresInSec = 300
+): Promise<string | null> {
+  await ensureBucket()
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(key, expiresInSec)
+  if (error || !data) return null
+  return data.signedUrl
+}
+
 export async function getSupabaseFile(key: string): Promise<{ buffer: Buffer; contentType: string } | null> {
   const { data, error } = await supabase.storage.from(BUCKET).download(key)
   if (error || !data) return null
   const arrayBuffer = await data.arrayBuffer()
   const contentType = data.type || "application/octet-stream"
   return { buffer: Buffer.from(arrayBuffer), contentType }
+}
+
+export async function supabaseFileExists(key: string): Promise<boolean> {
+  const parts = key.split("/")
+  const fileName = parts.pop() ?? key
+  const folderPath = parts.length > 0 ? parts.join("/") : undefined
+  const { data, error } = await supabase.storage.from(BUCKET).list(folderPath, {
+    search: fileName,
+    limit: 1,
+  })
+  if (error || !data) return false
+  return data.some((f) => f.name === fileName)
 }

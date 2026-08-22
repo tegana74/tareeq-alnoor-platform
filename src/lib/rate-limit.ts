@@ -24,10 +24,6 @@ export async function rateLimit(
   return { allowed: true }
 }
 
-export function clearRateLimits() {
-  buckets.clear()
-}
-
 /** عنوان العميل من الهيدرات (يدعم البروكسيات). */
 export async function getClientIp(): Promise<string> {
   const h = await headers()

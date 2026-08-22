@@ -52,7 +52,7 @@ export default async function TeacherAttemptsPage() {
 
       {attempts.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-14 text-center">
-          <p className="font-bold text-slate-500">لا توجد محاولات بعد</p>
+          <p className="font-medium text-slate-500">لا توجد محاولات بعد</p>
           <p className="mt-1 text-sm text-slate-400">ستظهر محاولات طلابك فور حلهم للاختبارات</p>
         </div>
       ) : (

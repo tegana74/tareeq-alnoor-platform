@@ -382,6 +382,22 @@ export async function saveAIQuestionsAction(
   }
 
   const max = await prisma.exam.aggregate({ where: { sectionId }, _max: { order: true } })
+
+  const questionData = questions.map((q, i) => {
+    const correctIdx = q.options.indexOf(q.correctAnswer)
+    return {
+      examId: "", // will be set after exam creation
+      text: q.question,
+      type: "MCQ" as const,
+      points: q.difficulty === "صعب" ? 3 : q.difficulty === "متوسط" ? 2 : 1,
+      order: i + 1,
+      options: q.options,
+      correctAnswer: String(correctIdx >= 0 ? correctIdx : 0),
+    }
+  })
+
+  const totalScore = questionData.reduce((sum, q) => sum + q.points, 0)
+
   const exam = await prisma.exam.create({
     data: {
       sectionId,
@@ -390,27 +406,13 @@ export async function saveAIQuestionsAction(
       durationMinutes: Math.max(1, durationMinutes),
       isFree,
       order: (max._max.order ?? 0) + 1,
+      totalScore,
     },
   })
 
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i]
-    const correctIdx = q.options.indexOf(q.correctAnswer)
-    await prisma.question.create({
-      data: {
-        examId: exam.id,
-        text: q.question,
-        type: "MCQ",
-        points: q.difficulty === "صعب" ? 3 : q.difficulty === "متوسط" ? 2 : 1,
-        order: i + 1,
-        options: q.options,
-        correctAnswer: String(correctIdx >= 0 ? correctIdx : 0),
-      },
-    })
-  }
+  for (const q of questionData) q.examId = exam.id
 
-  const total = await prisma.question.aggregate({ where: { examId: exam.id }, _sum: { points: true } })
-  await prisma.exam.update({ where: { id: exam.id }, data: { totalScore: total._sum.points ?? 0 } })
+  await prisma.question.createMany({ data: questionData })
 
   return { ok: true }
 }

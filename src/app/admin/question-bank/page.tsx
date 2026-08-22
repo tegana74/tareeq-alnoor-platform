@@ -63,7 +63,7 @@ export default async function AdminQuestionBankPage() {
                 <div className="divide-y divide-slate-50">
                   {chapter.questions.map((q, i) => (
                     <div key={q.id} className="flex items-start gap-3 px-5 py-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-500">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
                         {i + 1}
                       </span>
                       <div className="min-w-0 flex-1">

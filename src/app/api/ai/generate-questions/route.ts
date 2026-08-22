@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { z } from "zod"
 import { getCurrentUser } from "@/lib/auth"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
+import { AI_MODEL } from "@/lib/constants"
 
 const requestSchema = z.object({
   lessonName: z.string().min(1, "اسم الدرس مطلوب").max(200),
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" })
+    const model = genAI.getGenerativeModel({ model: AI_MODEL })
 
     const prompt = `أنت خبير تربوي في وضع مناهج اللغة العربية للمرحلة الثانوية والإعدادية في مصر. قم بتوليد ${count} أسئلة اختيار من متعدد عن درس "${lessonName}". أرجع النتيجة حصرياً بصيغة JSON كمصفوفة تحتوي على كائنات بالشكل التالي: [{"question": "نص", "options": ["1", "2", "3", "4"], "correctAnswer": "الخيار", "difficulty": "سهل"}] لا تقم بإضافة أي نصوص أخرى.`
 
@@ -59,8 +60,8 @@ export async function POST(req: Request) {
     const questions = JSON.parse(cleanJson)
 
     return NextResponse.json({ questions })
-  } catch (error: any) {
-    console.error("AI generate error:", error?.message ?? "unknown")
+  } catch (error: unknown) {
+    console.error("AI generate error:", error instanceof Error ? error.message : "unknown")
     return NextResponse.json(
       { error: "حدث خطأ غير متوقع" },
       { status: 500 }

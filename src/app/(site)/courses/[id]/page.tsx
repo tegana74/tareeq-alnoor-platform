@@ -161,7 +161,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
                 </span>
                 {section.name}
               </h3>
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-xs font-medium text-slate-500">
                 {section.videos.length + section.books.length + section.exams.length} عنصر
               </span>
             </div>
@@ -204,7 +204,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
                         <p className="font-bold text-navy">{item.title}</p>
                         <p className="text-xs text-slate-500">
                           {item.meta}
-                          {item.free && <span className="mr-2 text-mint-dark">· مجاني</span>}
+                          {item.free && <span className="ms-2 text-mint-dark">· مجاني</span>}
                         </p>
                       </div>
                       {item.free && !canAccess && (
@@ -213,7 +213,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
                         </span>
                       )}
                       {isLocked && (
-                        <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500 sm:block">
+                        <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500 sm:block">
                           بعد الاشتراك
                         </span>
                       )}

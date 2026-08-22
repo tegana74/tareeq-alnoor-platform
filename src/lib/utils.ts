@@ -26,13 +26,3 @@ export function formatDateTime(date: Date | string) {
 export function classNames(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }
-
-export function truncate(text: string, max = 100) {
-  if (text.length <= max) return text
-  return text.slice(0, max) + "…"
-}
-
-export function maskPhone(phone: string) {
-  if (phone.length <= 4) return phone
-  return phone.slice(0, 3) + "****" + phone.slice(-2)
-}

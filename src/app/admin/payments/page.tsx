@@ -58,15 +58,15 @@ export default async function AdminPaymentsPage() {
       </div>
 
       <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 sm:grid-cols-2">
-        <p><span className="font-bold text-slate-500">المرسل:</span> {inv.senderName ?? "—"}</p>
-        <p><span className="font-bold text-slate-500">المرجع:</span> {inv.reference ?? "—"}</p>
-        <p><span className="font-bold text-slate-500">التاريخ:</span> {formatDateTime(inv.createdAt)}</p>
-        {inv.notes && <p className="sm:col-span-2"><span className="font-bold text-slate-500">ملاحظات:</span> {inv.notes}</p>}
+        <p><span className="font-medium text-slate-500">المرسل:</span> {inv.senderName ?? "—"}</p>
+        <p><span className="font-medium text-slate-500">المرجع:</span> {inv.reference ?? "—"}</p>
+        <p><span className="font-medium text-slate-500">التاريخ:</span> {formatDateTime(inv.createdAt)}</p>
+        {inv.notes && <p className="sm:col-span-2"><span className="font-medium text-slate-500">ملاحظات:</span> {inv.notes}</p>}
       </div>
 
       {inv.proofImage && (
         <div className="mt-3">
-          <p className="mb-1 text-xs font-bold text-slate-500">إثبات الدفع:</p>
+          <p className="mb-1 text-xs font-medium text-slate-500">إثبات الدفع:</p>
           <a
             href={resolveFileUrl(inv.proofImage)}
             target="_blank"

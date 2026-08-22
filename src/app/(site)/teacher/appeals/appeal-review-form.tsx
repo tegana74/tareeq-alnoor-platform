@@ -27,13 +27,13 @@ export function AppealReviewForm({
 
       {essayAnswers.length > 0 && (
         <div className="rounded-xl bg-slate-50 p-4">
-          <p className="mb-2 text-xs font-black text-slate-500">إجابات الطالب المقالية:</p>
+          <p className="mb-2 text-xs font-bold text-slate-500">إجابات الطالب المقالية:</p>
           <div className="space-y-3">
             {essayAnswers.map((ea, i) => (
               <div key={i} className="rounded-lg bg-white p-3 text-sm">
                 <p className="font-bold text-navy">
                   {ea.question}
-                  <span className="mr-2 text-xs text-slate-400">
+                  <span className="ms-2 text-xs text-slate-400">
                     {ea.earned}/{ea.max} درجة
                   </span>
                 </p>
@@ -46,7 +46,7 @@ export function AppealReviewForm({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-black text-slate-500">القرار:</span>
+        <span className="text-sm font-bold text-slate-500">القرار:</span>
         <button
           type="button"
           onClick={() => setStatus("approved")}
@@ -69,7 +69,7 @@ export function AppealReviewForm({
 
       {status === "approved" && (
         <label className="block">
-          <span className="mb-1 block text-xs font-black text-slate-500">
+          <span className="mb-1 block text-xs font-bold text-slate-500">
             نقاط إضافية للطالب (الدرجة الحالية {currentScore}/{totalScore})
           </span>
           <input
@@ -85,7 +85,7 @@ export function AppealReviewForm({
       )}
 
       <label className="block">
-        <span className="mb-1 block text-xs font-black text-slate-500">الرد على الطالب</span>
+        <span className="mb-1 block text-xs font-bold text-slate-500">الرد على الطالب</span>
         <textarea
           name="response"
           required

@@ -24,7 +24,7 @@ export function EssayGradingForm({ answerId, maxPoints }: { answerId: string; ma
     <form action={formAction} className="flex flex-wrap items-end gap-3">
       <input type="hidden" name="answerId" value={answerId} />
       <label className="flex-1 min-w-40">
-        <span className="mb-1 block text-xs font-bold text-slate-500">الدرجة</span>
+        <span className="mb-1 block text-xs font-medium text-slate-500">الدرجة</span>
         <input
           type="number"
           name="points"
@@ -37,7 +37,7 @@ export function EssayGradingForm({ answerId, maxPoints }: { answerId: string; ma
         />
       </label>
       <label className="flex-[2] min-w-52">
-        <span className="mb-1 block text-xs font-bold text-slate-500">ملاحظة (اختياري)</span>
+        <span className="mb-1 block text-xs font-medium text-slate-500">ملاحظة (اختياري)</span>
         <input
           type="text"
           name="feedback"

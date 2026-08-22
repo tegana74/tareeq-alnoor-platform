@@ -98,7 +98,7 @@ function AddChildFlow({ onDone }: { onDone: () => void }) {
                 setPhone("")
                 formRef.current?.reset()
               }}
-              className="flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-slate-600"
+              className="flex items-center gap-1 text-sm font-medium text-slate-400 hover:text-slate-600"
             >
               <Smartphone className="h-4 w-4" />
               تغيير الرقم

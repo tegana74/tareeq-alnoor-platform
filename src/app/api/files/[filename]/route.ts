@@ -2,25 +2,33 @@ import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
-import { getSupabaseFile, getSupabasePublicUrl } from "@/lib/storage"
+import { getSupabaseSignedUrl, supabaseFileExists } from "@/lib/storage"
+import { MIME_MAP } from "@/lib/mime"
 
-const MIME: Record<string, string> = {
-  ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
-  ".mkv": "video/x-matroska", ".ogv": "video/ogg", ".avi": "video/x-msvideo",
-  ".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-  ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif",
+function sanitizeKey(raw: string): string | null {
+  const decoded = decodeURIComponent(raw)
+  if (!decoded || decoded.length > 255) return null
+  if (decoded.includes("\0")) return null
+  const normalized = decoded.replace(/\\/g, "/")
+  if (normalized.includes("..") || normalized.startsWith("/")) return null
+  if (/^https?:\/\//i.test(normalized)) return null
+  const segments = normalized.split("/").filter(Boolean)
+  for (const seg of segments) {
+    if (seg === ".." || seg === "." || seg === "") return null
+  }
+  return segments.join("/")
 }
 
 async function resolveAccess(
-  filename: string,
+  key: string,
   user: { id: string; role: string; teacherId: string | null }
 ) {
-  const filePath = `/api/files/${filename}`
+  const filePath = `/api/files/${key}`
 
   const [video, book, invoice] = await Promise.all([
-    prisma.video.findFirst({ where: { url: filePath }, include: { section: { include: { course: true } } } }),
-    prisma.book.findFirst({ where: { fileUrl: filePath }, include: { section: { include: { course: true } } } }),
-    prisma.invoice.findFirst({ where: { proofImage: filePath } }),
+    prisma.video.findFirst({ where: { url: filePath }, select: { isFree: true, downloadAllowed: true, section: { select: { courseId: true } } } }),
+    prisma.book.findFirst({ where: { fileUrl: filePath }, select: { isFree: true, downloadAllowed: true, section: { select: { courseId: true } } } }),
+    prisma.invoice.findFirst({ where: { proofImage: filePath }, select: { userId: true } }),
   ])
 
   if (video) {
@@ -42,36 +50,51 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ filenam
   if (!user) return new Response("يجب تسجيل الدخول", { status: 401 })
 
   const { filename } = await ctx.params
-  const decoded = decodeURIComponent(filename)
-  if (!decoded || decoded.length > 255) return new Response("غير موجود", { status: 404 })
+  const key = sanitizeKey(filename)
+  if (!key) return new Response("غير موجود", { status: 404 })
 
   const wantDownload = new URL(request.url).searchParams.get("dl") === "1"
-  const { allowed, downloadAllowed } = await resolveAccess(decoded, user)
+  const { allowed, downloadAllowed } = await resolveAccess(key, user)
   if (!allowed) return new Response("غير مصرح", { status: 403 })
   if (wantDownload && !downloadAllowed) {
     return new Response("التنزيل غير متاح لهذا الملف", { status: 403 })
   }
 
-  const file = await getSupabaseFile(decoded)
-  if (!file) return new Response("غير موجود", { status: 404 })
+  const exists = await supabaseFileExists(key)
+  if (!exists) return new Response("غير موجود", { status: 404 })
 
-  const ext = `.${decoded.split(".").pop()}`
-  const contentType = file.contentType || MIME[ext] || "application/octet-stream"
-  const disposition = wantDownload ? "attachment" : "inline"
+  const ext = `.${key.split(".").pop()}`
+  const contentType = MIME_MAP[ext] || "application/octet-stream"
+  const expiresIn = wantDownload ? 300 : 3600
+  const signedUrl = await getSupabaseSignedUrl(key, expiresIn)
+  if (!signedUrl) return new Response("فشل إنشاء رابط الملف", { status: 500 })
 
-  return new Response(new Uint8Array(file.buffer), {
+  return Response.redirect(signedUrl, 302)
+}
+
+export async function HEAD(request: NextRequest, ctx: { params: Promise<{ filename: string }> }) {
+  const user = await getCurrentUser()
+  if (!user) return new Response(null, { status: 401 })
+
+  const { filename } = await ctx.params
+  const key = sanitizeKey(filename)
+  if (!key) return new Response(null, { status: 404 })
+
+  const { allowed } = await resolveAccess(key, user)
+  if (!allowed) return new Response(null, { status: 403 })
+
+  const exists = await supabaseFileExists(key)
+  if (!exists) return new Response(null, { status: 404 })
+
+  const ext = `.${key.split(".").pop()}`
+  const contentType = MIME_MAP[ext] || "application/octet-stream"
+
+  return new Response(null, {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Content-Length": String(file.buffer.length),
-      "Content-Disposition": `${disposition}; filename="${encodeURIComponent(decoded)}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   })
-}
-
-export async function HEAD(request: NextRequest, ctx: { params: Promise<{ filename: string }> }) {
-  const res = await GET(request, ctx)
-  return new Response(null, { status: res.status })
 }

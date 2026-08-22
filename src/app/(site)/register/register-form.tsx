@@ -3,8 +3,10 @@
 import { useActionState, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { GraduationCap, Loader2, UserPlus, UsersRound } from "lucide-react"
+import { GraduationCap, UserPlus, UsersRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Alert } from "@/components/ui/alert"
 import { Field, Input, Select } from "@/components/ui/field"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Logo } from "@/components/ui/logo"
@@ -38,7 +40,8 @@ export function RegisterForm({ years }: RegisterFormProps) {
         <p className="mt-2 text-sm text-slate-500">أنشئ حسابك مجاناً وابدأ المذاكرة فوراً</p>
       </div>
 
-      <form action={formAction} className="space-y-5 rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/60">
+      <Card className="rounded-3xl shadow-xl">
+      <form action={formAction} className="space-y-5 p-8">
         <Field label="نوع الحساب" required>
           <div className="grid grid-cols-2 gap-3">
             {roleOptions.map((opt) => (
@@ -95,13 +98,11 @@ export function RegisterForm({ years }: RegisterFormProps) {
           </p>
         )}
         {state?.ok && (
-          <p className="rounded-xl bg-mint-50 px-4 py-3 text-sm font-bold text-mint-dark">
-            تم إنشاء حسابك بنجاح! سجّل دخولك الآن.
-          </p>
+          <Alert variant="success">تم إنشاء حسابك بنجاح! سجّل دخولك الآن.</Alert>
         )}
 
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
+        <Button type="submit" size="lg" className="w-full" disabled={pending} loading={pending}>
+          <UserPlus className="h-5 w-5" />
           إنشاء الحساب
         </Button>
 
@@ -112,6 +113,7 @@ export function RegisterForm({ years }: RegisterFormProps) {
           </Link>
         </p>
       </form>
+      </Card>
     </div>
   )
 }

@@ -136,7 +136,7 @@ export default async function TeacherLivePage() {
 
                 {attend.length > 0 && (
                   <details className="mt-3 border-t border-slate-100 pt-3">
-                    <summary className="cursor-pointer text-xs font-black text-slate-500 hover:text-amber-600">
+                    <summary className="cursor-pointer text-xs font-bold text-slate-500 hover:text-amber-600">
                       أسماء الحاضرين ({attend.length})
                     </summary>
                     <ul className="mt-2 grid gap-1 sm:grid-cols-2">
@@ -162,7 +162,7 @@ export default async function TeacherLivePage() {
       <h2 className="mb-4 text-lg font-black text-navy">إحصائية حضور الطلاب</h2>
       {isAdmin ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-black text-slate-500">إجمالي حضور كل طالب (كل المعلمين):</p>
+          <p className="text-xs font-bold text-slate-500">إجمالي حضور كل طالب (كل المعلمين):</p>
           <ul className="mt-3 grid gap-1 sm:grid-cols-2">
             {attendeeIds.map((uid) => (
               <li key={uid} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
@@ -214,7 +214,7 @@ export default async function TeacherLivePage() {
             {attendeeIds.slice(0, 5).map((uid, i) => (
               <li key={uid} className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-2.5 text-sm">
                 <span className="font-bold text-navy">
-                  <span className="ml-2 font-black text-amber-500">#{i + 1}</span>
+                  <span className="me-2 font-black text-amber-500">#{i + 1}</span>
                   {attendeeName.get(uid) ?? uid}
                 </span>
                 <span className="text-xs text-slate-500">

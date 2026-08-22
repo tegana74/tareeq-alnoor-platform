@@ -109,7 +109,7 @@ export function PracticeRunner({ attemptId, title, questions }: PracticeRunnerPr
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6">
         <p className="mb-5 text-lg font-bold leading-relaxed text-navy">
-          <span className="ml-2 rounded-lg bg-amber-100 px-2 py-1 text-sm font-black text-amber-600">
+          <span className="me-2 rounded-lg bg-amber-100 px-2 py-1 text-sm font-black text-amber-600">
             س{current + 1}
           </span>
           {q.text}

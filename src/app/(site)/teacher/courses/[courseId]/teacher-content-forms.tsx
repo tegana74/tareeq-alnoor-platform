@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronDown, FileUp, Loader2, Plus, Save, Trash2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
+import { uploadFile as clientUpload } from "@/lib/upload-client"
 import {
   createSectionAction,
   deleteSectionAction,
@@ -40,15 +41,6 @@ function ErrorBox({ error }: { error?: string }) {
   return <p className="text-xs font-bold text-rose-600">{error}</p>
 }
 
-async function uploadFile(file: File, kind: "video" | "file") {
-  const fd = new FormData()
-  fd.set("file", file)
-  const res = await fetch(`/api/upload?kind=${kind}`, { method: "POST", body: fd })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error ?? "فشل الرفع")
-  return data.url as string
-}
-
 function FilePicker({
   label,
   kind,
@@ -63,6 +55,7 @@ function FilePicker({
   onUploaded: (url: string, name: string) => void
 }) {
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string>()
   const [uploadedName, setUploadedName] = useState<string>()
 
@@ -71,14 +64,16 @@ function FilePicker({
     if (!file) return
     setError(undefined)
     setUploading(true)
+    setProgress(0)
     try {
-      const url = await uploadFile(file, kind)
+      const result = await clientUpload(file, kind, setProgress)
       setUploadedName(file.name)
-      onUploaded(url, file.name)
+      onUploaded(result.url, file.name)
     } catch (err) {
       setError(err instanceof Error ? err.message : "فشل الرفع")
     } finally {
       setUploading(false)
+      setProgress(0)
     }
   }
 
@@ -96,9 +91,22 @@ function FilePicker({
           </label>
         </div>
       ) : uploading ? (
-        <p className="flex items-center justify-center gap-2 text-sm font-black text-navy">
-          <Loader2 className="h-4 w-4 animate-spin" /> جارِ رفع الملف...
-        </p>
+        <div className="py-2">
+          <p className="flex items-center justify-center gap-2 text-sm font-black text-navy">
+            <Loader2 className="h-4 w-4 animate-spin" /> جارِ رفع الملف...
+          </p>
+          {progress > 0 && (
+            <div className="mt-2 mx-auto h-2 w-3/4 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full bg-amber-500 transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+          {progress > 0 && (
+            <p className="mt-1 text-[11px] font-medium text-slate-500">{progress}%</p>
+          )}
+        </div>
       ) : (
         <label className="flex cursor-pointer flex-col items-center gap-1 py-2">
           <Upload className="h-6 w-6 text-amber-500" />
@@ -200,7 +208,7 @@ export function VideoEditor({ sectionId, video }: VideoEditorProps) {
                 }}
               />
               {uploadedUrl && (
-                <p className="mt-1 text-[11px] font-bold text-slate-500" dir="ltr">
+                <p className="mt-1 text-[11px] font-medium text-slate-500" dir="ltr">
                   {uploadedUrl}
                 </p>
               )}
@@ -311,7 +319,7 @@ export function BookEditor({ sectionId, book }: BookEditorProps) {
               }}
             />
             {uploadedUrl && (
-              <p className="mt-1 text-[11px] font-bold text-slate-500" dir="ltr">
+              <p className="mt-1 text-[11px] font-medium text-slate-500" dir="ltr">
                 {uploadedUrl}
               </p>
             )}
@@ -477,7 +485,7 @@ export function QuestionEditor({ examId, question }: QuestionEditorProps) {
                 ))}
               </div>
               <div className="mb-2">
-                <span className="mb-1 block text-xs font-bold text-slate-500">الإجابة الصحيحة</span>
+                <span className="mb-1 block text-xs font-medium text-slate-500">الإجابة الصحيحة</span>
                 <select name="correctAnswer" defaultValue={correctIndex} className={inputCls}>
                   {[0, 1, 2, 3].map((i) => (
                     <option key={i} value={i}>

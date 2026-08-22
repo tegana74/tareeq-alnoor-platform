@@ -34,7 +34,7 @@ export default async function StudentDetailPage({
     <div className="space-y-6">
       <Link
         href="/admin/users"
-        className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-amber-600"
+        className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-amber-600"
       >
         <ChevronLeft className="h-4 w-4" />
         الطلاب
@@ -117,7 +117,7 @@ export default async function StudentDetailPage({
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-100">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs font-black text-slate-500">
+              <thead className="bg-slate-50 text-xs font-bold text-slate-500">
                 <tr>
                   <th className="px-4 py-2 text-right">الكورس</th>
                   <th className="px-4 py-2 text-right">السعر</th>

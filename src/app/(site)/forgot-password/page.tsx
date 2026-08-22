@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Loader2, MessageSquareText, Phone, ShieldCheck } from "lucide-react"
@@ -21,14 +21,15 @@ export default function ForgotPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string>()
   const [success, setSuccess] = useState(false)
-  const [skipping, setSkipping] = useState(false)
 
   const [state, formAction, pending] = useActionState(sendResetOtpAction, null)
+  const prevStateRef = useRef(state)
 
   useEffect(() => {
-    if (state?.ok && step === "phone") {
+    if (state?.ok && !prevStateRef.current?.ok && step === "phone") {
       setStep("otp")
     }
+    prevStateRef.current = state
   }, [state, step])
 
   async function handleVerifyOtp(e: React.FormEvent) {
@@ -98,7 +99,7 @@ export default function ForgotPasswordPage() {
                 placeholder="01xxxxxxxxx"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="pr-11 text-left"
+                className="ps-11 text-left"
                 required
               />
             </div>

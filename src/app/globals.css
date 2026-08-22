@@ -5,27 +5,74 @@
 @theme {
   --font-sans: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
 
-  /* ألوان النور */
+  /* ألوان النور — العلامة التجارية */
+  /* primary = amber الأصلي بنفس القيم تمامًا (بدون تغيير بصري) */
+  --color-primary-50: #fffbeb;
+  --color-primary-100: #fef3c7;
+  --color-primary-200: #fde68a;
+  --color-primary-300: #fcd34d;
+  --color-primary-400: #fbbf24;
+  --color-primary-500: #f59e0b;
+  --color-primary-600: #d97706;
+  --color-primary-700: #b45309;
+  --color-primary-800: #92400e;
   --color-primary: #f59e0b;
   --color-primary-light: #fbbf24;
   --color-primary-dark: #d97706;
-  --color-primary-50: #fffbeb;
-  --color-primary-100: #fef3c7;
 
   --color-navy: #1e1b4b;
   --color-navy-light: #312e81;
   --color-navy-dark: #141233;
 
+  /* Mint — scale كامل لدعم bg-mint-50..600,text-mint-*,border-mint-* */
+  --color-mint-50: #ecfdf5;
+  --color-mint-100: #d1fae5;
+  --color-mint-200: #a7f3d0;
+  --color-mint-300: #6ee7b7;
+  --color-mint-400: #34d399;
   --color-mint: #10b981;
+  --color-mint-500: #10b981;
+  --color-mint-600: #059669;
   --color-mint-light: #34d399;
   --color-mint-dark: #059669;
 
+  /* Royal — scale كامل لدعم bg-royal-50..600,text-royal-*,border-royal-* */
+  --color-royal-50: #eff6ff;
+  --color-royal-100: #dbeafe;
+  --color-royal-200: #bfdbfe;
+  --color-royal-300: #93c5fd;
+  --color-royal-400: #60a5fa;
   --color-royal: #2563eb;
+  --color-royal-500: #2563eb;
+  --color-royal-600: #1d4ed8;
   --color-royal-light: #60a5fa;
   --color-royal-dark: #1d4ed8;
 
+  /* ألوان الدلالات (Semantic) */
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-muted: #64748b;
+  --color-muted-foreground: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+  --color-success: #10b981;
+  --color-success-foreground: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #ffffff;
+  --color-danger: #e11d48;
+  --color-danger-foreground: #ffffff;
+
   --color-surface: #f8fafc;
   --color-ink: #0f172a;
+
+  /* درجات الرموز الدلالية (فاتح) */
+  --color-success-50: #ecfdf5;
+  --color-success-200: #a7f3d0;
+  --color-success-strong: #047857;
+  --color-danger-50: #ffe4e6;
+  --color-danger-200: #fecdd3;
+  --color-danger-strong: #be123c;
 }
 
 html {
@@ -86,6 +133,44 @@ body {
 /* الوضع الليلي */
 [data-theme="dark"] {
   color-scheme: dark;
+}
+
+/*
+  تجاوزات الرموز عبر متغيرات CSS —
+  أي utility يستخدم var(--color-*) يتكيف تلقائيًا مع الوضع الليلي
+  (bg-primary-50 / text-primary-600 / ring-primary-100 ... إلخ)
+*/
+[data-theme="dark"] {
+  /* primary — نفس المعاملة الليلية الحالية لـ amber */
+  --color-primary-50: #3b2408;
+  --color-primary-100: #452a0d;
+  --color-primary-200: #854d0e;
+  --color-primary-300: #a16207;
+  --color-primary-400: #fbbf24;
+  --color-primary-500: #fbbf24;
+  --color-primary-600: #fbbf24;
+  --color-primary-700: #fcd34d;
+  --color-primary-800: #fde68a;
+
+  /* رموز دلالية */
+  --color-background: #0f172a;
+  --color-foreground: #e2e8f0;
+  --color-card: #1e293b;
+  --color-card-foreground: #e2e8f0;
+  --color-border: #334155;
+  --color-muted: #94a3b8;
+  --color-muted-foreground: #94a3b8;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #fb7185;
+
+  /* درجات الرموز الدلالية */
+  --color-success-50: #052e24;
+  --color-success-200: #065f46;
+  --color-success-strong: #34d399;
+  --color-danger-50: #4a1122;
+  --color-danger-200: #881337;
+  --color-danger-strong: #fb7185;
 }
 
 [data-theme="dark"] body {
@@ -207,6 +292,9 @@ body {
 }
 [data-theme="dark"] .bg-royal-50 {
   background-color: #15254e;
+}
+[data-theme="dark"] .bg-royal-100 {
+  background-color: #1a3560;
 }
 [data-theme="dark"] .bg-violet-50 {
   background-color: #2e1065;

@@ -171,11 +171,11 @@ export function StructureClient({ years, subjects }: Props) {
                   <form action={deptAction} className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-slate-50 p-3">
                     <input type="hidden" name="yearId" value={year.id} />
                     <div>
-                      <label className="mb-1 block text-[11px] font-black text-slate-500">اسم الشعبة</label>
+                      <label className="mb-1 block text-[11px] font-bold text-slate-500">اسم الشعبة</label>
                       <Input name="name" placeholder="مثال: علمي علوم" required />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-black text-slate-500">الترتيب</label>
+                      <label className="mb-1 block text-[11px] font-bold text-slate-500">الترتيب</label>
                       <Input name="order" type="number" defaultValue={0} dir="ltr" className="w-20 text-left" />
                     </div>
                     <Button type="submit" size="sm" disabled={deptPending}>

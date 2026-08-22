@@ -3,7 +3,6 @@
 import React, { useState, useTransition } from "react"
 import { saveAIQuestionsAction } from "@/app/actions/teacher-content"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
 
 interface Props {
   sectionId: string
@@ -17,7 +16,12 @@ export default function AIGenerator({ sectionId }: Props) {
   const [examType, setExamType] = useState<"EXAM" | "HOMEWORK">("EXAM")
   const [isFree, setIsFree] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([])
+  const [generatedQuestions, setGeneratedQuestions] = useState<Array<{
+    question: string
+    options: string[]
+    correctAnswer: string
+    difficulty: string
+  }>>([])
   const [saveMsg, setSaveMsg] = useState("")
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -161,7 +165,7 @@ export default function AIGenerator({ sectionId }: Props) {
                     {idx + 1}. {q.question}
                   </h4>
                   <span
-                    className={`px-2 py-1 text-xs rounded-md shrink-0 mr-2 ${
+                    className={`px-2 py-1 text-xs rounded-md shrink-0 ms-2 ${
                       q.difficulty === "سهل"
                         ? "bg-green-500/20 text-green-400"
                         : q.difficulty === "صعب"

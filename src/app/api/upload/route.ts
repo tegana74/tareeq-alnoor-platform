@@ -2,19 +2,8 @@ import { NextResponse, NextRequest } from "next/server"
 import { randomUUID } from "crypto"
 import path from "path"
 import { getCurrentUser } from "@/lib/auth"
-import { uploadToSupabase, getSupabaseSignedUrl } from "@/lib/storage"
-
-const MAX_VIDEO = 500 * 1024 * 1024
-const MAX_FILE = 25 * 1024 * 1024
-const ALLOWED_FILES = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"])
-const ALLOWED_VIDEO = new Set([".mp4", ".webm", ".mov", ".mkv", ".ogv", ".avi"])
-
-const MIME: Record<string, string> = {
-  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-  ".webp": "image/webp", ".gif": "image/gif", ".pdf": "application/pdf",
-  ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
-  ".mkv": "video/x-matroska", ".ogv": "video/ogg", ".avi": "video/x-msvideo",
-}
+import { uploadToSupabase, getSupabaseSignedUrl, getSupabaseSignedUploadUrl } from "@/lib/storage"
+import { MIME_MAP, ALLOWED_FILE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS, MAX_FILE_SIZE, MAX_VIDEO_SIZE } from "@/lib/mime"
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser()
@@ -25,36 +14,53 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "غير مصرح برفع الفيديوهات" }, { status: 403 })
   }
 
+  const mode = new URL(request.url).searchParams.get("mode") ?? "buffer"
+
+  if (mode === "signed") {
+    const contentType = request.headers.get("content-type") ?? ""
+    const ext = path.extname(contentType).toLowerCase() || ".bin"
+    const allowed = kind === "video" ? ALLOWED_VIDEO_EXTENSIONS : ALLOWED_FILE_EXTENSIONS
+    if (!allowed.has(ext)) {
+      return NextResponse.json({ error: "نوع الملف غير مدعوم" }, { status: 400 })
+    }
+    const filename = `${randomUUID()}${ext}`
+    const signedUrl = await getSupabaseSignedUploadUrl(filename, 300)
+    if (!signedUrl) {
+      return NextResponse.json({ error: "فشل إنشاء رابط الرفع" }, { status: 500 })
+    }
+    return NextResponse.json({ uploadUrl: signedUrl, key: filename, url: `/api/files/${filename}` })
+  }
+
   const formData = await request.formData()
   const file = formData.get("file")
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "لم يتم إرفاق ملف" }, { status: 400 })
   }
 
-  const maxSize = kind === "video" ? MAX_VIDEO : MAX_FILE
+  const maxSize = kind === "video" ? MAX_VIDEO_SIZE : MAX_FILE_SIZE
   if (file.size > maxSize) {
     const mb = Math.round(maxSize / (1024 * 1024))
     return NextResponse.json({ error: `حجم الملف يجب ألا يتجاوز ${mb} ميجا` }, { status: 400 })
   }
 
   const ext = path.extname(file.name).toLowerCase()
-  const allowed = kind === "video" ? ALLOWED_VIDEO : ALLOWED_FILES
+  const allowed = kind === "video" ? ALLOWED_VIDEO_EXTENSIONS : ALLOWED_FILE_EXTENSIONS
   if (!allowed.has(ext)) {
     return NextResponse.json({ error: "نوع الملف غير مدعوم" }, { status: 400 })
   }
 
   const filename = `${randomUUID()}${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
-  const contentType = MIME[ext] ?? "application/octet-stream"
+  const fileContentType = MIME_MAP[ext] ?? "application/octet-stream"
 
   try {
-    await uploadToSupabase(filename, buffer, contentType)
+    await uploadToSupabase(filename, buffer, fileContentType)
     const signedUrl = await getSupabaseSignedUrl(filename, 3600)
     if (!signedUrl) {
       return NextResponse.json({ error: "فشل إنشاء رابط الملف" }, { status: 500 })
     }
     return NextResponse.json({ url: `/api/files/${filename}`, signedUrl })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "فشل رفع الملف" }, { status: 500 })
   }
 }

@@ -80,7 +80,7 @@ export default async function PracticeAttemptPage({ params }: PracticeAttemptPro
               <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-5">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <p className="font-bold text-navy">
-                    <span className="ml-1 text-amber-500">س{i + 1}:</span> {q.text}
+                    <span className="me-1 text-amber-500">س{i + 1}:</span> {q.text}
                   </p>
                   <span
                     className={classNames(

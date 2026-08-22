@@ -152,7 +152,7 @@ export default async function ResultPage({ params }: ResultPageProps) {
               <div key={question.id} className="rounded-2xl border border-slate-200 p-5">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <p className="font-bold text-navy">
-                    <span className="ml-1 text-amber-500">س{i + 1}:</span> {question.text}
+                    <span className="me-1 text-amber-500">س{i + 1}:</span> {question.text}
                   </p>
                   <span
                     className={classNames(
@@ -207,7 +207,7 @@ export default async function ResultPage({ params }: ResultPageProps) {
                   </div>
                 ) : (
                   <div className="rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">
-                    <p className="mb-1 font-bold text-slate-500">إجابتك:</p>
+                    <p className="mb-1 font-medium text-slate-500">إجابتك:</p>
                     {answer?.userAnswer ? answer.userAnswer : <span className="text-slate-400">لم تُجب</span>}
                   </div>
                 )}

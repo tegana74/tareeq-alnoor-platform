@@ -32,7 +32,7 @@ export default async function TeacherAppealsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <Link href="/teacher" className="mb-6 inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-amber-600">
+      <Link href="/teacher" className="mb-6 inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-amber-600">
         <ChevronLeft className="h-4 w-4" />
         لوحة المدرس
       </Link>
@@ -63,7 +63,7 @@ export default async function TeacherAppealsPage() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <p className="font-black text-navy">
                     {a.user.firstName} {a.user.lastName}
-                    <span className="mr-2 text-sm font-bold text-slate-500">— {a.attempt.exam.title}</span>
+                    <span className="ms-2 text-sm font-medium text-slate-500">— {a.attempt.exam.title}</span>
                   </p>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -86,7 +86,7 @@ export default async function TeacherAppealsPage() {
                     <span className="font-black text-navy">ردك: </span>
                     {a.response}
                     {a.status === "approved" && a.extraPoints > 0 && (
-                      <span className="mr-2 font-black text-mint-dark">+{a.extraPoints} نقطة</span>
+                      <span className="ms-2 font-black text-mint-dark">+{a.extraPoints} نقطة</span>
                     )}
                   </div>
                 ) : (

@@ -7,12 +7,43 @@ export const metadata: Metadata = { title: "التظلمات | لوحة الإد
 
 export default async function AdminAppealsPage() {
   const appeals = await prisma.appeal.findMany({
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      reason: true,
+      response: true,
+      status: true,
+      extraPoints: true,
+      createdAt: true,
       user: { select: { firstName: true, lastName: true, phone: true } },
       attempt: {
-        include: {
-          exam: { include: { section: { include: { course: { include: { teacher: true } } } } } },
-          answers: { include: { question: true } },
+        select: {
+          score: true,
+          totalScore: true,
+          exam: {
+            select: {
+              title: true,
+              section: {
+                select: {
+                  course: {
+                    select: {
+                      name: true,
+                      teacher: { select: { name: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          answers: {
+            where: { question: { type: { not: "MCQ" } } },
+            select: {
+              question: { select: { type: true, text: true, points: true } },
+              userAnswer: true,
+              earnedPoints: true,
+              feedback: true,
+            },
+          },
         },
       },
     },

@@ -4,7 +4,6 @@ import Link from "next/link"
 import { CalendarClock, Radio, Video } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
-import { canAccessCourse } from "@/lib/subscriptions"
 import { formatPrice } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "البث المباشر" }
@@ -15,17 +14,36 @@ export default async function LiveListPage() {
 
   const sessions = await prisma.liveSession.findMany({
     include: {
-      teacher: { include: { user: true } },
-      course: true,
-      bookings: { where: { userId: user.id } },
+      teacher: { select: { user: { select: { firstName: true } } } },
+      course: { select: { id: true, name: true } },
+      bookings: { where: { userId: user.id }, select: { status: true }, take: 1 },
     },
     orderBy: { startAt: "desc" },
   })
 
+  const paidCourseIds = new Set<string>()
+  for (const s of sessions) {
+    if (s.courseId) paidCourseIds.add(s.courseId)
+  }
+
+  let subscribedCourseIds = new Set<string>()
+  if (paidCourseIds.size > 0 && user.role === "STUDENT") {
+    const subs = await prisma.subscription.findMany({
+      where: {
+        userId: user.id,
+        courseId: { in: [...paidCourseIds] },
+        status: "active",
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      select: { courseId: true },
+    })
+    subscribedCourseIds = new Set(subs.map((s) => s.courseId))
+  }
+
   const now = new Date()
   const accessible: typeof sessions = []
   for (const s of sessions) {
-    const ok = s.isFree || !s.courseId || (await canAccessCourse(user, s.courseId))
+    const ok = s.isFree || !s.courseId || user.role === "ADMIN" || subscribedCourseIds.has(s.courseId)
     if (ok) accessible.push(s)
   }
 

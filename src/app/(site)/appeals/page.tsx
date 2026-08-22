@@ -67,7 +67,7 @@ export default async function AppealsPage() {
               <p className="mt-2 text-xs text-slate-400">
                 {formatDateTime(a.createdAt)}
                 {a.status === "approved" && a.extraPoints > 0 && (
-                  <span className="mr-2 font-black text-mint-dark">+{a.extraPoints} نقطة أُضيفت لدرجتك</span>
+                  <span className="ms-2 font-black text-mint-dark">+{a.extraPoints} نقطة أُضيفت لدرجتك</span>
                 )}
               </p>
               {a.response && (

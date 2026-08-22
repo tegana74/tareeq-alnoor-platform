@@ -14,7 +14,7 @@ export function Logo({ className, iconClassName, textClassName }: LogoProps) {
     <Link href="/" className={classNames("flex items-center gap-2 group", className)}>
       <span
         className={classNames(
-          "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg shadow-amber-500/30 group-hover:shadow-amber-500/50 transition-shadow",
+          "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-orange-600 text-white shadow-lg shadow-primary-500/30 group-hover:shadow-primary-500/50 transition-shadow",
           iconClassName
         )}
       >
@@ -22,7 +22,7 @@ export function Logo({ className, iconClassName, textClassName }: LogoProps) {
       </span>
       <span className={classNames("text-xl font-extrabold text-navy", textClassName)}>
         {APP_NAME}
-        <span className="text-amber-500">.</span>
+        <span className="text-primary-500">.</span>
       </span>
     </Link>
   )

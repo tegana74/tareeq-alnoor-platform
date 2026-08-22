@@ -9,10 +9,17 @@ export const metadata: Metadata = { title: "المعلمون | لوحة الإد
 
 export default async function AdminTeachersPage() {
   const teachers = await prisma.teacher.findMany({
-    include: {
-      user: true,
-      _count: { select: { courses: true, liveSessions: true } },
-    },
+      select: {
+        id: true,
+        name: true,
+        title: true,
+        bio: true,
+        image: true,
+        isFeatured: true,
+        sortOrder: true,
+        user: { select: { id: true, isBlocked: true, firstName: true, lastName: true } },
+        _count: { select: { courses: true, liveSessions: true } },
+      },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   })
 
@@ -51,7 +58,7 @@ export default async function AdminTeachersPage() {
                   {t.bio ? ` · ${t.bio}` : ""}
                 </p>
               </div>
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-xs font-medium text-slate-500">
                 {t._count.courses} كورس · {t._count.liveSessions} جلسة
               </span>
               <span
