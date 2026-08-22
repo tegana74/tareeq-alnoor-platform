@@ -80,16 +80,21 @@ export async function saveLiveSessionAction(_prev: unknown, formData: FormData):
     return { ok: true }
   }
 
-  const ownerTeacherId =
-    u.teacherId ??
-    (parsed.data.courseId
-      ? (await prisma.course.findUnique({ where: { id: parsed.data.courseId }, select: { teacherId: true } }))?.teacherId
-      : undefined)
+  let ownerTeacherId: string | null = u.teacherId
+
+  if (!ownerTeacherId && parsed.data.courseId) {
+    const course = await prisma.course.findUnique({ where: { id: parsed.data.courseId }, select: { teacherId: true } })
+    ownerTeacherId = course?.teacherId ?? null
+  }
+
+  if (!ownerTeacherId) {
+    return { ok: false, error: "يجب تحديد كورس لربط الجلسة بمعلم" }
+  }
+
   const session = await prisma.liveSession.create({
-    data: { ...data, teacherId: ownerTeacherId ?? u.id },
+    data: { ...data, teacherId: ownerTeacherId },
   })
 
-  // إشعار للمشتركين في الكورس
   if (session.courseId) {
     const subs = await prisma.subscription.findMany({
       where: { courseId: session.courseId, status: "active" },
@@ -104,7 +109,6 @@ export async function saveLiveSessionAction(_prev: unknown, formData: FormData):
       })),
     })
   } else {
-    // إعلان لجميع الطلاب عن حصة مفتوحة
     const students = await prisma.user.findMany({
       where: { role: "STUDENT" },
       select: { id: true },

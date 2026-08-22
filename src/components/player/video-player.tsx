@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { getVideoEmbedUrl, isEmbeddableProvider } from "@/lib/video"
 import { resolveFileUrl } from "@/lib/resolve-file-url"
@@ -15,16 +15,29 @@ interface VideoPlayerProps {
   userName?: string
 }
 
+const THROTTLE_MS = 15_000
+const JUMP_THRESHOLD = 10
+
 export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, userName }: VideoPlayerProps) {
   const resolvedUrl = resolveFileUrl(url)
   const [progress, setProgress] = useState(0)
   const [saving, setSaving] = useState(false)
-  const savedRef = useRef(false)
+
+  const lastSavedPctRef = useRef(0)
+  const lastSaveTimeRef = useRef(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const providerTyped = provider as Parameters<typeof getVideoEmbedUrl>[0]
 
-  async function saveProgress(pct: number, completed = false) {
-    if (savedRef.current && !completed) return
-    savedRef.current = true
+  const saveProgress = useCallback(async (pct: number, completed = false) => {
+    if (!completed) {
+      const now = Date.now()
+      const timeSinceLastSave = now - lastSaveTimeRef.current
+      const jumpSinceLastSave = Math.abs(pct - lastSavedPctRef.current)
+      if (timeSinceLastSave < THROTTLE_MS && jumpSinceLastSave < JUMP_THRESHOLD) return
+    }
+
+    lastSavedPctRef.current = pct
+    lastSaveTimeRef.current = Date.now()
     setSaving(true)
     try {
       await fetch("/api/videos/progress", {
@@ -37,16 +50,53 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
     } finally {
       setSaving(false)
     }
-  }
+  }, [videoId])
 
   useEffect(() => {
-    return () => {
-      if (savedRef.current) return
-      // حفظ تلقائي عند مغادرة الصفحة
-      void saveProgress(0)
+    const video = videoRef.current
+    if (!video) return
+
+    function handleTimeUpdate() {
+      if (!video || !video.duration) return
+      const pct = Math.round((video.currentTime / video.duration) * 100)
+      setProgress(pct)
+      saveProgress(pct, false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
+    function handlePause() {
+      if (!video || !video.duration) return
+      const pct = Math.round((video.currentTime / video.duration) * 100)
+      saveProgress(pct, false)
+    }
+
+    function handleEnded() {
+      saveProgress(100, true)
+    }
+
+    function handleBeforeUnload() {
+      if (!video || !video.duration) return
+      const pct = Math.round((video.currentTime / video.duration) * 100)
+      navigator.sendBeacon(
+        "/api/videos/progress",
+        new Blob(
+          [JSON.stringify({ videoId, progress: pct, completed: pct >= 90 })],
+          { type: "application/json" }
+        )
+      )
+    }
+
+    video.addEventListener("timeupdate", handleTimeUpdate)
+    video.addEventListener("pause", handlePause)
+    video.addEventListener("ended", handleEnded)
+    window.addEventListener("beforeunload", handleBeforeUnload)
+
+    return () => {
+      video.removeEventListener("timeupdate", handleTimeUpdate)
+      video.removeEventListener("pause", handlePause)
+      video.removeEventListener("ended", handleEnded)
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+    }
+  }, [videoId, saveProgress])
 
   if (isEmbeddableProvider(providerTyped)) {
     return (
@@ -58,9 +108,6 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title={title}
-            onLoad={() => {
-              // تتبع يدوي: زر إتمام مشاهدة
-            }}
           />
         </div>
         <div className="mt-4 flex items-center justify-between">
@@ -87,24 +134,16 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
     )
   }
 
-  // رفع مباشر (محمي — بلا تنزيل أو تصوير داخل المتصفح قدر الإمكان)
   const isUploaded = provider === "UPLOAD"
   return (
     <div onContextMenu={(e) => isUploaded && e.preventDefault()}>
       <div className="relative overflow-hidden rounded-2xl bg-black shadow-xl">
         <video
+          ref={videoRef}
           controls
           controlsList="nodownload noremoteplayback"
           disablePictureInPicture
           className="aspect-video w-full"
-          onTimeUpdate={(e) => {
-            const v = e.currentTarget
-            if (v.duration) {
-              const pct = Math.round((v.currentTime / v.duration) * 100)
-              setProgress(pct)
-            }
-          }}
-          onEnded={() => saveProgress(100, true)}
         >
           <source src={resolvedUrl} />
         </video>

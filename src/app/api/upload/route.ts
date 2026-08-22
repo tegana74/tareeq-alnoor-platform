@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { randomUUID } from "crypto"
 import path from "path"
 import { getCurrentUser } from "@/lib/auth"
-import { uploadToSupabase, getSupabasePublicUrl } from "@/lib/storage"
+import { uploadToSupabase, getSupabaseSignedUrl } from "@/lib/storage"
 
 const MAX_VIDEO = 500 * 1024 * 1024
 const MAX_FILE = 25 * 1024 * 1024
@@ -49,9 +49,12 @@ export async function POST(request: NextRequest) {
 
   try {
     await uploadToSupabase(filename, buffer, contentType)
-    const publicUrl = getSupabasePublicUrl(filename)
-    return NextResponse.json({ url: publicUrl })
+    const signedUrl = await getSupabaseSignedUrl(filename, 3600)
+    if (!signedUrl) {
+      return NextResponse.json({ error: "فشل إنشاء رابط الملف" }, { status: 500 })
+    }
+    return NextResponse.json({ url: `/api/files/${filename}`, signedUrl })
   } catch (e) {
-    return NextResponse.json({ error: "فشل رفع الملف" + (e instanceof Error ? `: ${e.message}` : "") }, { status: 500 })
+    return NextResponse.json({ error: "فشل رفع الملف" }, { status: 500 })
   }
 }

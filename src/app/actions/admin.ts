@@ -34,56 +34,65 @@ export async function approveInvoiceAction(invoiceId: string) {
 
   const amount = Number(invoice.amount)
 
-  await prisma.$transaction(async (tx) => {
-    await tx.invoice.update({
-      where: { id: invoice.id },
-      data: {
-        status: "PAID",
-        reviewedById: admin.id,
-        reviewedAt: new Date(),
-      },
-    })
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.invoice.updateMany({
+        where: { id: invoice.id, status: "PENDING" },
+        data: {
+          status: "PAID",
+          reviewedById: admin.id,
+          reviewedAt: new Date(),
+        },
+      })
+      if (updated.count === 0) throw new Error("ALREADY_REVIEWED")
 
-    if (invoice.type === "SUBSCRIBE" && invoice.courseId) {
-      await tx.subscription.create({
+      if (invoice.type === "SUBSCRIBE" && invoice.courseId) {
+        await tx.subscription.create({
+          data: {
+            userId: invoice.userId,
+            courseId: invoice.courseId,
+            price: amount,
+            status: "active",
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          },
+        })
+      } else if (invoice.type === "WALLET_CHARGE") {
+        await tx.user.update({
+          where: { id: invoice.userId },
+          data: { walletBalance: { increment: amount } },
+        })
+        const freshUser = await tx.user.findUnique({ where: { id: invoice.userId } })
+        await tx.walletTransaction.create({
+          data: {
+            userId: invoice.userId,
+            amount,
+            balanceAfter: Number(freshUser?.walletBalance ?? 0),
+            type: "charge",
+            invoiceId: invoice.id,
+            description: "شحن المحفظة",
+          },
+        })
+      }
+
+      await tx.notification.create({
         data: {
           userId: invoice.userId,
-          courseId: invoice.courseId,
-          price: amount,
-          status: "active",
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          title:
+            invoice.type === "SUBSCRIBE" ? "تم تفعيل اشتراكك" : "تم شحن محفظتك",
+          body:
+            invoice.type === "SUBSCRIBE"
+              ? "تم تأكيد دفعك وتفعيل اشتراكك بنجاح، بالتوفيق في مذاكرتك!"
+              : `تم إضافة ${amount} ج.م إلى محفظتك`,
+          link: invoice.type === "SUBSCRIBE" ? "/wallet" : "/wallet",
         },
       })
-    } else if (invoice.type === "WALLET_CHARGE") {
-      await tx.user.update({
-        where: { id: invoice.userId },
-        data: { walletBalance: { increment: amount } },
-      })
-      await tx.walletTransaction.create({
-        data: {
-          userId: invoice.userId,
-          amount,
-          balanceAfter: Number(user.walletBalance) + amount,
-          type: "charge",
-          invoiceId: invoice.id,
-          description: "شحن المحفظة",
-        },
-      })
+    })
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "ALREADY_REVIEWED") {
+      return { ok: false, error: "تمت مراجعة الفاتورة بالفعل" }
     }
-
-    await tx.notification.create({
-      data: {
-        userId: invoice.userId,
-        title:
-          invoice.type === "SUBSCRIBE" ? "تم تفعيل اشتراكك 🎉" : "تم شحن محفظتك ✅",
-        body:
-          invoice.type === "SUBSCRIBE"
-            ? "تم تأكيد دفعك وتفعيل اشتراكك بنجاح، بالتوفيق في مذاكرتك!"
-            : `تم إضافة ${amount} ج.م إلى محفظتك`,
-        link: invoice.type === "SUBSCRIBE" ? "/wallet" : "/wallet",
-      },
-    })
-  })
+    throw e
+  }
 
   return { ok: true }
 }

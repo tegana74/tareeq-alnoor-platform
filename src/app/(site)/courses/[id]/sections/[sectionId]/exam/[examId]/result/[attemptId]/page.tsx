@@ -17,9 +17,8 @@ export const metadata: Metadata = { title: "نتيجة الاختبار" }
 export default async function ResultPage({ params }: ResultPageProps) {
   const { id: courseId, sectionId, examId, attemptId } = await params
 
-  try {
-    const user = await getCurrentUser()
-    if (!user) redirect("/login")
+  const user = await getCurrentUser()
+  if (!user) redirect("/login")
 
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
@@ -225,15 +224,4 @@ export default async function ResultPage({ params }: ResultPageProps) {
       </div>
     </div>
   )
-  } catch (err) {
-    console.error("ResultPage error:", err)
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-slate-500">حدث خطأ أثناء تحميل النتيجة</p>
-        <a href={`/courses/${courseId}`} className="text-sm font-bold text-amber-600 hover:underline">
-          العودة للدورة ←
-        </a>
-      </div>
-    )
-  }
 }

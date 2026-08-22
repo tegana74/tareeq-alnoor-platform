@@ -72,7 +72,7 @@ export default async function StudentDetailPage({
             <Lock className="h-5 w-5 text-amber-500" />
             <div>
               <p className="text-xs text-slate-400">كلمة السر</p>
-              <p className="font-bold text-navy">{student.password}</p>
+              <p className="font-bold text-navy">••••••••</p>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">

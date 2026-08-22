@@ -277,6 +277,9 @@ export const getCurrentUser = cache(async () => {
   if (!session || session.expiresAt < new Date()) {
     return null
   }
+  if (session.user.isBlocked || !session.user.isActive) {
+    return null
+  }
 
   return session.user
 })

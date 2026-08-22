@@ -17,7 +17,7 @@ export default async function AdminTeacherStatsPage({
   const teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
     include: {
-      user: { select: { firstName: true, lastName: true, phone: true, password: true, isBlocked: true } },
+      user: { select: { firstName: true, lastName: true, phone: true, isBlocked: true } },
       _count: { select: { courses: true, liveSessions: true } },
       courses: { select: { id: true } },
     },
@@ -136,7 +136,7 @@ export default async function AdminTeacherStatsPage({
             <Lock className="h-5 w-5 text-amber-500" />
             <div>
               <p className="text-xs text-slate-400">كلمة السر</p>
-              <p className="font-bold text-navy">{teacher.user.password}</p>
+              <p className="font-bold text-navy">••••••••</p>
             </div>
           </div>
         </div>

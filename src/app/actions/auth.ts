@@ -67,13 +67,37 @@ export async function verifyOtpAction(
 
 export async function directLoginAction(phone: string, password: string): Promise<VerifyOtpResult> {
   const normalized = phone.replace(/[^0-9+]/g, "")
+  const ip = await getClientIp()
+
+  const rl = await rateLimit(`login:${ip}`, 10, 15 * 60 * 1000)
+  if (!rl.allowed) return { ok: false, error: "محاولات كثيرة، حاول بعد 15 دقيقة" }
+
+  const recentFailures = await prisma.loginAttempt.count({
+    where: {
+      phone: normalized,
+      success: false,
+      createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) },
+    },
+  })
+  if (recentFailures >= 5) {
+    return { ok: false, error: "محاولات دخول كثيرة، حاول بعد 15 دقيقة" }
+  }
+
   const user = await prisma.user.findUnique({ where: { phone: normalized } })
-  if (!user) return { ok: false, error: "رقم الهاتف غير مسجل" }
+  if (!user) {
+    await prisma.loginAttempt.create({ data: { phone: normalized, ip, success: false } })
+    return { ok: false, error: "رقم الهاتف غير مسجل" }
+  }
   if (user.isBlocked) return { ok: false, error: "الحساب محظور" }
   if (!user.isActive) return { ok: false, error: "الحساب غير مفعل" }
 
   const valid = await (await import("@/lib/auth")).verifyPassword(password, user.password)
-  if (!valid) return { ok: false, error: "كلمة المرور غير صحيحة" }
+  if (!valid) {
+    await prisma.loginAttempt.create({ data: { phone: normalized, ip, success: false } })
+    return { ok: false, error: "كلمة المرور غير صحيحة" }
+  }
+
+  await prisma.loginAttempt.create({ data: { phone: normalized, ip, success: true } })
 
   const token = await (await import("@/lib/auth")).createSession(user.id)
 

@@ -1,17 +1,12 @@
-const BUCKET = "uploads"
-
 export function resolveFileUrl(url: string): string {
   if (!url) return url
 
-  if (url.includes("supabase")) return url
+  if (url.includes("/api/files/")) return url
 
-  const match = url.match(/\/api\/files\/([\w.-]+)/i)
-  if (match) {
-    const supabaseUrl = process.env.SUPABASE_URL
-    if (supabaseUrl) {
-      return `${supabaseUrl}/storage/v1/object/public/${BUCKET}/${match[1]}`
-    }
-    return url
+  const supabaseMatch = url.match(/\/storage\/v1\/object\/(?:public|sign)\/uploads\/(.+)/i)
+  if (supabaseMatch) {
+    const key = supabaseMatch[1]
+    return `/api/files/${key}`
   }
 
   return url

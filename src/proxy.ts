@@ -14,7 +14,14 @@ export function proxy(request: NextRequest) {
     .map((o) => o.trim())
     .filter(Boolean)
 
-  const hostMatches = !!host && !!origin && origin.includes(host)
+  const hostMatches = !!host && !!origin && (() => {
+    try {
+      const originHost = new URL(origin).hostname
+      return originHost === host.split(":")[0]
+    } catch {
+      return false
+    }
+  })()
   const originAllowed = allowedOrigins.includes(origin ?? "")
 
   // غياب Origin يعتبر مرفوضاً للطلبات التعديلية ما لم تسمح صراحةً

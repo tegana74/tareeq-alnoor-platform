@@ -215,21 +215,24 @@ export async function deleteTeacherAction(_prev: unknown, formData: FormData): P
   const teacher = await prisma.teacher.findUnique({ where: { id }, include: { user: true } })
   if (!teacher) return { ok: false, error: "غير موجود" }
 
-  if (teacher.user) {
-    await prisma.session.deleteMany({ where: { userId: teacher.user.id } })
-  }
+  await prisma.$transaction(async (tx) => {
+    if (teacher.user) {
+      await tx.session.deleteMany({ where: { userId: teacher.user!.id } })
+    }
 
-  const courses = await prisma.course.findMany({ where: { teacherId: id } })
-  for (const course of courses) {
-    await prisma.section.deleteMany({ where: { courseId: course.id } })
-  }
-  await prisma.course.deleteMany({ where: { teacherId: id } })
-  await prisma.liveSession.deleteMany({ where: { teacherId: id } })
+    const courses = await tx.course.findMany({ where: { teacherId: id } })
+    for (const course of courses) {
+      await tx.section.deleteMany({ where: { courseId: course.id } })
+    }
+    await tx.course.deleteMany({ where: { teacherId: id } })
+    await tx.liveSession.deleteMany({ where: { teacherId: id } })
 
-  if (teacher.user) {
-    await prisma.user.delete({ where: { id: teacher.user.id } })
-  }
-  await prisma.teacher.delete({ where: { id } })
+    if (teacher.user) {
+      await tx.user.delete({ where: { id: teacher.user!.id } })
+    }
+    await tx.teacher.delete({ where: { id } })
+  })
+
   return { ok: true }
 }
 

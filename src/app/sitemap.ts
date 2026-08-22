@@ -18,16 +18,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   try {
-    const [courses, stages, subjects] = await Promise.all([
+    const [courses, years, subjects] = await Promise.all([
       prisma.course.findMany({
-        where: { isPublished: true },
+        where: { isActive: true },
         select: { id: true, updatedAt: true },
       }),
-      prisma.academicStage.findMany({
-        select: { id: true, updatedAt: true },
+      prisma.year.findMany({
+        select: { id: true, createdAt: true },
       }),
       prisma.subject.findMany({
-        select: { id: true, updatedAt: true },
+        select: { id: true, createdAt: true },
       }),
     ])
 
@@ -38,21 +38,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }))
 
-    const stagePages: MetadataRoute.Sitemap = stages.map((s) => ({
-      url: `${SITE_URL}/courses?stage=${s.id}`,
-      lastModified: s.updatedAt,
+    const yearPages: MetadataRoute.Sitemap = years.map((y) => ({
+      url: `${SITE_URL}/courses?year=${y.id}`,
+      lastModified: y.createdAt,
       changeFrequency: "monthly" as const,
       priority: 0.5,
     }))
 
     const subjectPages: MetadataRoute.Sitemap = subjects.map((s) => ({
       url: `${SITE_URL}/courses?subject=${s.id}`,
-      lastModified: s.updatedAt,
+      lastModified: s.createdAt,
       changeFrequency: "monthly" as const,
       priority: 0.5,
     }))
 
-    return [...staticPages, ...coursePages, ...stagePages, ...subjectPages]
+    return [...staticPages, ...coursePages, ...yearPages, ...subjectPages]
   } catch {
     return staticPages
   }
