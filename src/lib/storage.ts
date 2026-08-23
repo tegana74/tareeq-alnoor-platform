@@ -41,14 +41,14 @@ export async function getSupabaseSignedUrl(key: string, expiresInSec = 3600): Pr
   return data.signedUrl
 }
 
-export async function getSupabaseSignedUploadUrl(
-  key: string,
-  expiresInSec = 300
-): Promise<string | null> {
+/**
+ * رابط رفع موقّع مباشر (Signed Upload URL) — يستخدم واجهة Supabase الصحيحة
+ * createSignedUploadUrl (وليس createSignedUrl التي هي للتنزيل).
+ * العميل ينفذ PUT على الرابط الناتج مباشرة نحو Supabase متجاوزًا Serverless.
+ */
+export async function getSupabaseSignedUploadUrl(key: string): Promise<string | null> {
   await ensureBucket()
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(key, expiresInSec)
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(key)
   if (error || !data) return null
   return data.signedUrl
 }

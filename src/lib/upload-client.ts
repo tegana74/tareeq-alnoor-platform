@@ -1,86 +1,84 @@
-const MAX_BUFFER_SIZE = 25 * 1024 * 1024
-const SIGNED_URL_TTL = 300
+/**
+ * حد جسم طلب Vercel Serverless (~4.5MB) — ما فوقه يجب ألا يمر عبر Next.js.
+ */
+export const VERCEL_BODY_LIMIT = 4.5 * 1024 * 1024
+
+/**
+ * اختيار مسار الرفع:
+ * - الفيديو: دائما Signed Upload مباشر نحو Supabase (يتجاوز حد Vercel وذاكرة الـFunction).
+ * - بقية الملفات (PDF/صور/مستندات): buffer للملفات الصغيرة، وsigned لما يتجاوز الحد.
+ */
+export function shouldUseSignedUpload(kind: "video" | "file", size: number): boolean {
+  if (kind === "video") return true
+  return size > VERCEL_BODY_LIMIT
+}
 
 export interface UploadResult {
   url: string
   key: string
 }
 
-export async function uploadFile(
-  file: File,
-  kind: "video" | "file" = "file",
-  onProgress?: (percent: number) => void
-): Promise<UploadResult> {
-  const useSigned = kind === "video" && file.size > MAX_BUFFER_SIZE
-
-  if (useSigned) {
-    return uploadViaSignedUrl(file, kind, onProgress)
-  }
-  return uploadViaBuffer(file, kind, onProgress)
-}
+type ProgressFn = (percent: number) => void
 
 async function uploadViaSignedUrl(
   file: File,
   kind: "video" | "file",
-  onProgress?: (percent: number) => void
+  onProgress?: ProgressFn
 ): Promise<UploadResult> {
-  const metaRes = await fetch(`/api/upload?kind=${kind}&mode=signed`, {
-    method: "POST",
-    headers: { "content-type": file.type || "application/octet-stream" },
-  })
+  onProgress?.(0)
+
+  const params = new URLSearchParams({ kind, mode: "signed", name: file.name, size: String(file.size) })
+  const metaRes = await fetch(`/api/upload?${params.toString()}`, { method: "POST" })
   const meta = await metaRes.json().catch(() => ({}))
+
   if (!metaRes.ok || !meta.uploadUrl) {
-    throw new Error(meta.error ?? "فشل إنشاء رابط الرفع")
+    throw new Error(meta.error ?? "فشل تجهيز رابط الرفع")
   }
 
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open("PUT", meta.uploadUrl)
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+    if (file.type) xhr.setRequestHeader("Content-Type", file.type)
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
         onProgress(Math.round((e.loaded / e.total) * 100))
       }
     }
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve({ url: meta.url, key: meta.key })
-      } else {
-        reject(new Error("فشل رفع الملف مباشرة"))
-      }
-    }
-
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("فشل رفع الملف مباشرة")))
     xhr.onerror = () => reject(new Error("خطأ في الشبكة أثناء الرفع"))
     xhr.send(file)
   })
+
+  return { url: meta.url as string, key: meta.key as string }
 }
 
 async function uploadViaBuffer(
   file: File,
   kind: "video" | "file",
-  onProgress?: (percent: number) => void
+  onProgress?: ProgressFn
 ): Promise<UploadResult> {
-  if (onProgress) onProgress(0)
+  onProgress?.(0)
 
   const fd = new FormData()
   fd.set("file", file)
   const res = await fetch(`/api/upload?kind=${kind}`, { method: "POST", body: fd })
   const data = await res.json().catch(() => ({}))
 
-  if (onProgress) onProgress(100)
+  onProgress?.(100)
 
   if (!res.ok) throw new Error(data.error ?? "فشل الرفع")
-  return { url: data.url, key: data.url.replace("/api/files/", "") }
+  return { url: data.url as string, key: (data.url as string).replace("/api/files/", "") }
 }
 
-export function isVideoFile(file: File): boolean {
-  return file.type.startsWith("video/") || /\.(mp4|webm|mov|mkv|ogv|avi)$/i.test(file.name)
-}
-
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+/** نقطة الدخول الموحدة لكل الرفع داخل المنصة */
+export async function uploadFile(
+  file: File,
+  kind: "video" | "file" = "file",
+  onProgress?: ProgressFn
+): Promise<UploadResult> {
+  if (shouldUseSignedUpload(kind, file.size)) {
+    return uploadViaSignedUrl(file, kind, onProgress)
+  }
+  return uploadViaBuffer(file, kind, onProgress)
 }
