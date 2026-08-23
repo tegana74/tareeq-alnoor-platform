@@ -362,6 +362,22 @@ export async function deleteQuestionAction(_prev: unknown, formData: FormData): 
 
 // ============================= أسئلة الذكاء الاصطناعي =============================
 
+interface AIValidatedQuestion {
+  question: string
+  type: "MCQ" | "ESSAY"
+  options: string[]
+  correctAnswer: number | null
+  difficulty: string
+  originalType: "MCQ" | "TRUE_FALSE" | "ESSAY"
+}
+
+function difficultyToPoints(d: string): number {
+  const norm = d.toLowerCase()
+  if (norm === "صعب" || norm === "hard") return 3
+  if (norm === "متوسط" || norm === "medium") return 2
+  return 1
+}
+
 export async function saveAIQuestionsAction(
   _prev: unknown,
   formData: FormData
@@ -379,7 +395,7 @@ export async function saveAIQuestionsAction(
   const { user, section } = await ownsSection(sectionId)
   if (!user || !section) return { ok: false, error: "غير مصرح" }
 
-  let questions: { question: string; options: string[]; correctAnswer: string; difficulty: string }[]
+  let questions: AIValidatedQuestion[]
   try {
     questions = JSON.parse(questionsJson)
   } catch {
@@ -390,21 +406,68 @@ export async function saveAIQuestionsAction(
     return { ok: false, error: "لا توجد أسئلة للحفظ" }
   }
 
-  const max = await prisma.exam.aggregate({ where: { sectionId }, _max: { order: true } })
+  // Strict server-side validation before any DB write
+  const questionData: {
+    examId: string
+    text: string
+    type: "MCQ" | "ESSAY"
+    points: number
+    order: number
+    options: string[]
+    correctAnswer: string | null
+  }[] = []
 
-  const questionData = questions.map((q, i) => {
-    const correctIdx = q.options.indexOf(q.correctAnswer)
-    return {
-      examId: "", // will be set after exam creation
-      text: q.question,
-      type: "MCQ" as const,
-      points: q.difficulty === "صعب" ? 3 : q.difficulty === "متوسط" ? 2 : 1,
-      order: i + 1,
-      options: q.options,
-      correctAnswer: String(correctIdx >= 0 ? correctIdx : 0),
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]
+    const label = `السؤال ${i + 1}`
+
+    if (!q.question || typeof q.question !== "string" || q.question.trim().length < 3) {
+      return { ok: false, error: `${label}: نص السؤال فارغ أو قصير جداً` }
     }
-  })
 
+    const qType = q.type === "MCQ" || q.type === "ESSAY" ? q.type : "MCQ"
+    const points = difficultyToPoints(q.difficulty ?? "")
+
+    if (qType === "ESSAY") {
+      // ESSAY: no options, no correctAnswer
+      questionData.push({
+        examId: "",
+        text: q.question.trim(),
+        type: "ESSAY",
+        points,
+        order: i + 1,
+        options: [],
+        correctAnswer: null,
+      })
+    } else {
+      // MCQ (includes TRUE_FALSE stored as MCQ)
+      const options = Array.isArray(q.options) ? q.options.filter((o): o is string => typeof o === "string" && o.trim().length > 0) : []
+      if (options.length < 2) {
+        return { ok: false, error: `${label}: عدد الخيارات أقل من 2` }
+      }
+
+      // Strict: correctAnswer must be a valid index
+      if (q.correctAnswer === null || q.correctAnswer === undefined) {
+        return { ok: false, error: `${label}: الإجابة الصحيحة مفقودة` }
+      }
+      const idx = typeof q.correctAnswer === "number" ? q.correctAnswer : Number(q.correctAnswer)
+      if (!Number.isInteger(idx) || idx < 0 || idx >= options.length) {
+        return { ok: false, error: `${label}: الإجابة الصحيحة (${String(q.correctAnswer)}) ليست فهرساً صالحاً` }
+      }
+
+      questionData.push({
+        examId: "",
+        text: q.question.trim(),
+        type: "MCQ",
+        points,
+        order: i + 1,
+        options,
+        correctAnswer: String(idx),
+      })
+    }
+  }
+
+  const max = await prisma.exam.aggregate({ where: { sectionId }, _max: { order: true } })
   const totalScore = questionData.reduce((sum, q) => sum + q.points, 0)
 
   const exam = await prisma.exam.create({
