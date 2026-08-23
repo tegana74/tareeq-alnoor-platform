@@ -1,5 +1,5 @@
-// Live Classroom Foundation — Phase 1
-// جدول القاعات + ربط الجلسات الموجودة بها + حالة الجلسة
+-- Live Classroom Foundation - Phase 1
+-- classrooms table + link existing live_sessions to classrooms + session status
 
 CREATE TABLE "classrooms" (
     "id" TEXT NOT NULL,
@@ -23,7 +23,7 @@ ALTER TABLE "classrooms" ADD CONSTRAINT "classrooms_courseId_fkey" FOREIGN KEY (
 ALTER TABLE "classrooms" ADD CONSTRAINT "classrooms_yearId_fkey" FOREIGN KEY ("yearId") REFERENCES "years"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "classrooms" ADD CONSTRAINT "classrooms_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "subjects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- LiveSession: ربط اختياري بالقاعة + حالة الجلسة
+-- LiveSession: optional classroom link + session status
 ALTER TABLE "live_sessions" ADD COLUMN "classroomId" TEXT;
 ALTER TABLE "live_sessions" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'scheduled';
 
