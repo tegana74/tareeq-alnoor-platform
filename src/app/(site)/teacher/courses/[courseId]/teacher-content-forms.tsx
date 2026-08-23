@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
 import { uploadFile as clientUpload } from "@/lib/upload-client"
 import { getOptionLabel } from "@/lib/exam-labels"
+import { ExamImportWizard } from "@/components/learning/exam-import-wizard"
 import {
   createSectionAction,
   deleteSectionAction,
@@ -372,6 +373,25 @@ interface ExamEditorProps {
   exam?: { id: string; title: string; type: string; durationMinutes: number; isFree: boolean; order: number }
 }
 
+
+/** نقطة دخول معالج الاستيراد داخل قسم إنشاء الاختبارات */
+function ExamImportToggle({ sectionId }: { sectionId: string }) {
+  const [importOpen, setImportOpen] = useState(false)
+  return (
+    <div className="w-full">
+      <Button type="button" size="sm" variant="outline" onClick={() => setImportOpen((o) => !o)} aria-expanded={importOpen}>
+        <FileUp className="h-4 w-4" aria-hidden="true" />
+        استيراد من ملف
+      </Button>
+      {importOpen && (
+        <div className="mt-3 rounded-xl border border-primary-200 bg-white p-4">
+          <ExamImportWizard sectionId={sectionId} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ExamEditor({ sectionId, exam }: ExamEditorProps) {
   const { open, setOpen, state, formAction, pending } = useSubmit(saveExamAction)
   return (
@@ -404,6 +424,7 @@ export function ExamEditor({ sectionId, exam }: ExamEditorProps) {
             <Button type="submit" size="sm" variant="navy" disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ
             </Button>
+            <ExamImportToggle sectionId={sectionId} />
             <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
               إلغاء
             </Button>
