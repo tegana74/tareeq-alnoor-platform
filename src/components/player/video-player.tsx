@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { getVideoEmbedUrl, isEmbeddableProvider } from "@/lib/video"
+import { AlertCircle } from "lucide-react"
 import { resolveFileUrl } from "@/lib/resolve-file-url"
 import { Button } from "@/components/ui/button"
 
@@ -98,12 +99,23 @@ export function VideoPlayer({ videoId, provider, url, title, downloadAllowed, us
     }
   }, [videoId, saveProgress])
 
+  const embedUrl = isEmbeddableProvider(providerTyped) ? getVideoEmbedUrl(providerTyped, resolvedUrl) : null
+
   if (isEmbeddableProvider(providerTyped)) {
+    if (!embedUrl) {
+      return (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-danger-200 bg-danger-50 p-8 text-center">
+          <AlertCircle className="h-8 w-8 text-danger-strong" aria-hidden="true" />
+          <p className="text-sm font-bold text-navy">رابط الفيديو غير صالح للعرض المدمج</p>
+          <p className="text-xs text-muted-foreground">يرجى مراجعة المعلم لتحديث رابط الدرس</p>
+        </div>
+      )
+    }
     return (
       <div>
         <div className="overflow-hidden rounded-2xl bg-black shadow-xl">
           <iframe
-            src={getVideoEmbedUrl(providerTyped, resolvedUrl)}
+            src={embedUrl}
             className="aspect-video w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen

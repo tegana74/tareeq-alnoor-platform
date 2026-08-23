@@ -3,6 +3,7 @@
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
+import { validateVideoUrl } from "@/lib/video"
 
 type ActionResult = { ok: boolean; error?: string }
 
@@ -97,6 +98,10 @@ export async function saveVideoAction(_prev: unknown, formData: FormData): Promi
       where: { id: parsed.data.id, sectionId },
     })
     if (!existing) return { ok: false, error: "الدرس غير موجود" }
+
+    const urlCheck = validateVideoUrl(parsed.data.provider, parsed.data.url)
+    if (!urlCheck.ok) return { ok: false, error: urlCheck.error }
+
     await prisma.video.update({
       where: { id: parsed.data.id },
       data: {
@@ -111,6 +116,10 @@ export async function saveVideoAction(_prev: unknown, formData: FormData): Promi
     })
   } else {
     const max = await prisma.video.aggregate({ where: { sectionId }, _max: { order: true } })
+
+    const urlCheckCreate = validateVideoUrl(parsed.data.provider, parsed.data.url)
+    if (!urlCheckCreate.ok) return { ok: false, error: urlCheckCreate.error }
+
     await prisma.video.create({
       data: {
         sectionId,

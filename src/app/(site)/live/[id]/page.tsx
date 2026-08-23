@@ -5,7 +5,7 @@ import { CalendarClock, ChevronLeft, Radio } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
-import { getVideoEmbedUrl } from "@/lib/video"
+import { extractYouTubeId } from "@/lib/video"
 import { formatPrice } from "@/lib/utils"
 import { LiveCountdown } from "./live-countdown"
 import { MarkAttendance } from "./mark-attendance"
@@ -55,8 +55,9 @@ export default async function LiveSessionPage({ params }: LivePageProps) {
   const attended = session.attendances.length > 0
 
   const rawUrl = session.url ?? ""
-  const isEmbeddable = /youtube\.com|youtu\.be/i.test(rawUrl)
-  const embedUrl = rawUrl && isEmbeddable ? getVideoEmbedUrl("YOUTUBE", rawUrl) : null
+  const ytId = rawUrl ? extractYouTubeId(rawUrl) : null
+  const isEmbeddable = Boolean(ytId)
+  const embedUrl = ytId ? `https://www.youtube.com/embed/${ytId}` : null
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
