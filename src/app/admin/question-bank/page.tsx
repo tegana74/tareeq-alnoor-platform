@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { HelpCircle } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { ChapterForm, ChapterActions, QuestionForm, QuestionActions } from "./question-bank-client"
+import { getOptionLabel } from "@/lib/exam-labels"
 
 export const metadata: Metadata = { title: "بنك الأسئلة | لوحة الإدارة" }
 
@@ -79,7 +80,7 @@ export default async function AdminQuestionBankPage() {
                                     : "bg-slate-50 text-slate-500"
                                 }`}
                               >
-                                {String.fromCharCode(1571 + oi)}. {String(opt)}
+                                {getOptionLabel(oi)}. {String(opt)}
                               </span>
                             ))}
                           </div>

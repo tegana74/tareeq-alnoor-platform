@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
+import { getOptionLabel } from "@/lib/exam-labels"
 
 interface PracticeQuestion {
   id: string
@@ -134,7 +135,7 @@ export function PracticeRunner({ attemptId, title, questions }: PracticeRunnerPr
                     selected ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
                   )}
                 >
-                  {selected ? <CheckCircle2 className="h-4 w-4" /> : String.fromCharCode(0x0623 + oi)}
+                  {selected ? <CheckCircle2 className="h-4 w-4" /> : getOptionLabel(oi)}
                 </span>
                 {option}
               </button>

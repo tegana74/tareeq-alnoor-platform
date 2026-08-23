@@ -4,6 +4,7 @@ import { HelpCircle } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { QuestionForm, QuestionActions } from "./question-bank-client"
+import { getOptionLabel } from "@/lib/exam-labels"
 
 export const metadata: Metadata = { title: "بنك الأسئلة | لوحة المعلم" }
 
@@ -74,7 +75,7 @@ export default async function TeacherQuestionBankPage() {
                                     : "bg-slate-50 text-slate-500"
                                 }`}
                               >
-                                {String.fromCharCode(1571 + oi)}. {String(opt)}
+                                {getOptionLabel(oi)}. {String(opt)}
                               </span>
                             ))}
                           </div>

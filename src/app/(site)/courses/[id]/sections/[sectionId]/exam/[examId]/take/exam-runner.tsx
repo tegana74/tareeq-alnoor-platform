@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, ChevronLeft, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
+import { getOptionLabel } from "@/lib/exam-labels"
 
 interface Question {
   id: string
@@ -204,7 +205,7 @@ export function ExamRunner({
                       selected ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
                     )}
                   >
-                    {["أ", "ب", "ج", "د", "هـ", "و"][i] ?? i + 1}
+                    {getOptionLabel(i)}
                   </span>
                   <span className="font-bold text-navy">{option}</span>
                 </button>

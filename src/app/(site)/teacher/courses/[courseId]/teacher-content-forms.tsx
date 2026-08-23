@@ -6,6 +6,7 @@ import { CheckCircle2, ChevronDown, FileUp, Loader2, Plus, Save, Trash2, Upload,
 import { Button } from "@/components/ui/button"
 import { classNames } from "@/lib/utils"
 import { uploadFile as clientUpload } from "@/lib/upload-client"
+import { getOptionLabel } from "@/lib/exam-labels"
 import {
   createSectionAction,
   deleteSectionAction,
@@ -478,7 +479,7 @@ export function QuestionEditor({ examId, question }: QuestionEditorProps) {
                   <input
                     key={i}
                     name={`option${i}`}
-                    placeholder={`الخيار ${String.fromCharCode(0x0623 + i)}`}
+                    placeholder={`الخيار ${getOptionLabel(i)}`}
                     defaultValue={opts[i] ?? ""}
                     className={inputCls}
                   />
@@ -489,7 +490,7 @@ export function QuestionEditor({ examId, question }: QuestionEditorProps) {
                 <select name="correctAnswer" defaultValue={correctIndex} className={inputCls}>
                   {[0, 1, 2, 3].map((i) => (
                     <option key={i} value={i}>
-                      {String.fromCharCode(0x0623 + i)}
+                      {getOptionLabel(i)}
                     </option>
                   ))}
                 </select>
