@@ -56,16 +56,22 @@ export default async function ExamIntroPage({ params }: ExamIntroProps) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <nav className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/courses" className="hover:text-amber-600">
-          الكورسات
-        </Link>
-        <ChevronLeft className="h-4 w-4" />
-        <Link href={`/courses/${courseId}`} className="hover:text-amber-600">
-          {exam.section.course.name}
-        </Link>
-        <ChevronLeft className="h-4 w-4" />
-        <span className="font-bold text-navy">{exam.title}</span>
+      <nav aria-label="مسار التنقل" className="mb-6">
+        <ol className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-muted-foreground">
+          <li>
+            <Link href="/" className="rounded transition-colors hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">الرئيسية</Link>
+          </li>
+          <li aria-hidden="true"><ChevronLeft className="h-3.5 w-3.5" /></li>
+          <li>
+            <Link href="/courses" className="rounded transition-colors hover:text-primary-600">الكورسات</Link>
+          </li>
+          <li aria-hidden="true"><ChevronLeft className="h-3.5 w-3.5" /></li>
+          <li>
+            <Link href={`/courses/${courseId}`} className="rounded transition-colors hover:text-primary-600">{exam.section.course.name}</Link>
+          </li>
+          <li aria-hidden="true"><ChevronLeft className="h-3.5 w-3.5" /></li>
+          <li aria-current="page" className="text-navy">{exam.title}</li>
+        </ol>
       </nav>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

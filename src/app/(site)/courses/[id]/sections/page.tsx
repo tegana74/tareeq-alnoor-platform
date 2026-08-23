@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
-import { BookOpen, CheckCircle2, ChevronLeft, Circle, FileText, PlayCircle } from "lucide-react"
+import { BookOpen, CheckCircle2, Circle, FileText, PlayCircle } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
 import { ExamType } from "@/generated/prisma/enums"
+import { LearningHeader } from "@/components/learning/learning-header"
 
 interface StudyPageProps {
   params: Promise<{ id: string }>
@@ -61,41 +62,17 @@ export default async function StudyPage({ params }: StudyPageProps) {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <nav className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/courses" className="hover:text-amber-600">
-          الكورسات
-        </Link>
-        <ChevronLeft className="h-4 w-4" />
-        <span className="font-bold text-navy">{course.name}</span>
-      </nav>
+      <LearningHeader
+        courseId={courseId}
+        courseName={course.name}
+        teacherName={course.teacher.name}
+        percent={progressPct}
+        completed={completedVideos}
+        total={totalVideos}
+        trail={[{ label: "المذاكرة" }]}
+      />
 
-      <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-navy">المذاكرة</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {course.name} — {course.teacher.name}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-center">
-              <p className="text-2xl font-black text-amber-600">{progressPct}%</p>
-              <p className="text-xs text-slate-500">إنجازك</p>
-            </div>
-            <div className="w-32">
-              <div className="h-2.5 rounded-full bg-slate-100">
-                <div
-                  className="h-2.5 rounded-full bg-gradient-to-l from-amber-400 to-orange-500 transition-all"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </div>
-            <p className="text-xs text-slate-500">
-              {completedVideos}/{totalVideos} محاضرة
-            </p>
-          </div>
-        </div>
-      </div>
+      <h1 className="sr-only">محتوى كورس {course.name}</h1>
 
       <div className="space-y-6">
         {course.sections.map((section, si) => (

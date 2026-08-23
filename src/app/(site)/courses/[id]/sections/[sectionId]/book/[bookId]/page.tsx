@@ -1,14 +1,17 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
-import { BookOpen, ChevronLeft, Download, FileDown, FileText, PlayCircle, Star } from "lucide-react"
+import { BookOpen, Download, FileDown } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
 import { Button } from "@/components/ui/button"
-import { ExamType } from "@/generated/prisma/enums"
 import { BookmarkButton } from "@/components/bookmark-button"
+import { BookReadButton } from "@/components/learning/book-read-button"
 import { resolveFileUrl } from "@/lib/resolve-file-url"
+import { getLearningShell } from "@/lib/learning-shell"
+import { LearningHeader } from "@/components/learning/learning-header"
+import { ContentsNav, PrevNextNav } from "@/components/learning/contents-nav"
 
 interface BookPageProps {
   params: Promise<{ id: string; sectionId: string; bookId: string }>
@@ -16,7 +19,7 @@ interface BookPageProps {
 
 export async function generateMetadata({ params }: BookPageProps): Promise<Metadata> {
   const { bookId } = await params
-  const book = await prisma.book.findUnique({ where: { id: bookId } })
+  const book = await prisma.book.findUnique({ where: { id: bookId }, select: { title: true } })
   return { title: book?.title ?? "الكتاب" }
 }
 
@@ -24,31 +27,40 @@ export default async function BookPage({ params }: BookPageProps) {
   const { id: courseId, sectionId, bookId } = await params
   const user = await getCurrentUser()
 
-  const [book, course] = await Promise.all([
+  const [book, courseExists] = await Promise.all([
     prisma.book.findUnique({
       where: { id: bookId },
-      include: { section: { include: { videos: true, books: true, exams: true } } },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        fileUrl: true,
+        downloadAllowed: true,
+        isFree: true,
+        sectionId: true,
+      },
     }),
-    prisma.course.findUnique({ where: { id: courseId } }),
+    prisma.course.findUnique({ where: { id: courseId }, select: { id: true } }),
   ])
 
-  if (!book || !course || book.section.courseId !== courseId) notFound()
+  if (!book || !courseExists || book.sectionId !== sectionId) notFound()
 
   const hasAccess = await canAccessCourse(user, courseId)
   if (!book.isFree && !hasAccess) {
     redirect(`/courses/${courseId}`)
   }
 
+  const shell = await getLearningShell(courseId, {
+    user,
+    current: { kind: "book", id: bookId },
+  })
+  if (!shell) notFound()
+
   const bookmarked =
     user?.role === "STUDENT"
       ? Boolean(await prisma.bookmark.findFirst({ where: { userId: user.id, bookId } }))
       : false
-
-  const items = [
-    ...book.section.videos.map((v) => ({ kind: "video", id: v.id, title: v.title })),
-    ...book.section.books.map((b) => ({ kind: "book", id: b.id, title: b.title })),
-    ...book.section.exams.map((e) => ({ kind: "exam", id: e.id, title: e.title })),
-  ]
 
   const bookTypeLabels: Record<string, string> = {
     BOOK: "كتاب",
@@ -60,107 +72,84 @@ export default async function BookPage({ params }: BookPageProps) {
 
   const isUploaded = book.fileUrl.startsWith("/api/files/") || book.fileUrl.includes("supabase")
   const fileUrl = resolveFileUrl(book.fileUrl)
+  const bookDone = shell.flat.find((f) => f.kind === "book" && f.id === bookId)?.status === "done"
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <nav className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/courses" className="hover:text-amber-600">
-          الكورسات
-        </Link>
-        <ChevronLeft className="h-4 w-4" />
-        <Link href={`/courses/${courseId}`} className="hover:text-amber-600">
-          {course.name}
-        </Link>
-        <ChevronLeft className="h-4 w-4" />
-        <span className="font-bold text-navy">{book.section.name}</span>
-      </nav>
+      <LearningHeader
+        courseId={courseId}
+        courseName={shell.course.name}
+        teacherName={shell.course.teacherName}
+        percent={shell.progress.percent}
+        completed={shell.progress.completed}
+        total={shell.progress.total}
+        trail={[{ label: shell.flat.find((f) => f.sectionId === sectionId)?.sectionName ?? "", href: `/courses/${courseId}/sections` }, { label: book.title }]}
+      />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-        <div>
+        <div className="min-w-0">
           {isUploaded && !book.type.includes("AUDIO") ? (
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
-              <iframe src={fileUrl} title={book.title} className="h-[85vh] w-full" />
-            </div>
+            <>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-xl font-black text-navy">{book.title}</h1>
+                <div className="flex shrink-0 items-center gap-2 text-xs font-bold text-muted-foreground">
+                  {user?.role === "STUDENT" && (
+                    <BookReadButton bookId={book.id} initialDone={bookDone} />
+                  )}
+                  {user?.role === "STUDENT" && <BookmarkButton bookId={book.id} initial={bookmarked} />}
+                  {book.downloadAllowed ? (
+                    <a href={`${fileUrl}?dl=1`} className="flex items-center gap-1 rounded px-2 py-1 transition-colors hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">
+                      <Download className="h-4 w-4" aria-hidden="true" /> تنزيل الملف
+                    </a>
+                  ) : (
+                    <span>العرض فقط — التنزيل محمي بإذن المعلم</span>
+                  )}
+                </div>
+              </div>
+              <div className="overflow-hidden rounded-3xl border border-border bg-slate-100">
+                <iframe src={fileUrl} title={book.title} className="h-[85vh] w-full" />
+              </div>
+            </>
           ) : (
-            <div className="flex flex-col items-center rounded-3xl border border-slate-200 bg-white p-10 text-center">
-              <span className="mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-mint-50">
+            <div className="flex flex-col items-center rounded-3xl border border-border bg-card p-10 text-center">
+              <span className="mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-success-50">
                 {book.type === "AUDIO" ? (
-                  <FileDown className="h-10 w-10 text-mint" />
+                  <FileDown className="h-10 w-10 text-success-strong" aria-hidden="true" />
                 ) : (
-                  <BookOpen className="h-10 w-10 text-mint" />
+                  <BookOpen className="h-10 w-10 text-success-strong" aria-hidden="true" />
                 )}
               </span>
               <h1 className="text-2xl font-black text-navy">{book.title}</h1>
-              <p className="mt-1 text-sm text-slate-500">{bookTypeLabels[book.type] ?? "ملف"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{bookTypeLabels[book.type] ?? "ملف"}</p>
               {user?.role === "STUDENT" && (
-                <div className="mt-3">
+                <div className="mt-3 flex flex-col items-center gap-3">
                   <BookmarkButton bookId={book.id} initial={bookmarked} />
+                  <BookReadButton bookId={book.id} initialDone={bookDone} />
                 </div>
               )}
-              {book.description && <p className="mt-4 max-w-lg leading-8 text-slate-600">{book.description}</p>}
+              {book.description && <p className="mt-4 max-w-lg leading-8 text-muted-foreground">{book.description}</p>}
               {book.downloadAllowed && (
-                <Button
-                  href={isUploaded ? `${fileUrl}?dl=1` : fileUrl}
-                  variant="mint"
-                  size="lg"
-                  className="mt-6"
-                >
-                  <Download className="h-5 w-5" />
+                <Button href={isUploaded ? `${fileUrl}?dl=1` : fileUrl} variant="mint" size="lg" className="mt-6">
+                  <Download className="h-5 w-5" aria-hidden="true" />
                   تحميل الملف
                 </Button>
               )}
             </div>
           )}
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-xs font-bold text-amber-700">
-            <h1 className="text-lg font-black text-navy">{book.title}</h1>
-            <div className="flex shrink-0 items-center gap-2">
-              {user?.role === "STUDENT" && <BookmarkButton bookId={book.id} initial={bookmarked} />}
-              {book.downloadAllowed ? (
-                  isUploaded ? (
-                  <a href={`${fileUrl}?dl=1`} className="flex items-center gap-1 hover:underline">
-                    <Download className="h-4 w-4" /> تنزيل الملف
-                  </a>
-                ) : (
-                  <a href={fileUrl} className="flex items-center gap-1 hover:underline">
-                    <Download className="h-4 w-4" /> فتح الملف
-                  </a>
-                )
-              ) : (
-                <span className="text-xs text-amber-600">العرض فقط — التنزيل محمي بإذن المعلم</span>
-              )}
-            </div>
-          </div>
+
+          <PrevNextNav prev={shell.prev} next={shell.next} courseId={courseId} />
         </div>
 
-        <aside className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 px-2 font-extrabold text-navy">{book.section.name}</h2>
-          <div className="space-y-1">
-            {items.map((item) => {
-              const Icon = item.kind === "video" ? PlayCircle : item.kind === "book" ? BookOpen : FileText
-              const href =
-                item.kind === "video"
-                  ? `/courses/${courseId}/sections/${sectionId}/video/${item.id}`
-                  : item.kind === "book"
-                    ? `/courses/${courseId}/sections/${sectionId}/book/${item.id}`
-                    : `/courses/${courseId}/sections/${sectionId}/exam/${item.id}`
-              const isActive = item.kind === "book" && item.id === bookId
-              return (
-                <Link
-                  key={`${item.kind}-${item.id}`}
-                  href={href}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                    isActive ? "bg-mint-50 font-bold text-mint-dark" : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="line-clamp-1">{item.title}</span>
-                  {isActive && <Star className="mr-auto h-3.5 w-3.5 fill-mint text-mint" />}
-                </Link>
-              )
-            })}
-          </div>
-        </aside>
+        <ContentsNav
+          courseId={courseId}
+          courseName={shell.course.name}
+          flat={shell.flat}
+        />
       </div>
+
+      <Link href={`/courses/${courseId}/sections`} className="mt-10 inline-block rounded text-sm font-bold text-primary-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">
+        عرض كل أقسام الكورس
+      </Link>
     </div>
   )
 }

@@ -112,7 +112,15 @@ export default async function LiveListPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-2xl font-black text-navy">البث المباشر</h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-black text-navy">البث المباشر</h1>
+        <Link
+          href="/live-classrooms"
+          className="rounded-xl border-2 border-primary-300 bg-primary-50 px-4 py-2 text-sm font-bold text-primary-700 transition-colors hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+        >
+          القاعات المباشرة ←
+        </Link>
+      </div>
 
       {upcoming.length > 0 && (
         <>

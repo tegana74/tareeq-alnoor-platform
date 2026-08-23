@@ -33,6 +33,7 @@ interface SiteHeaderClientProps {
 }
 
 const DASHBOARD_BY_ROLE: Partial<Record<HeaderRole, { href: string; label: string }>> = {
+  STUDENT: { href: "/dashboard", label: "لوحتي" },
   ADMIN: { href: "/admin", label: "لوحة الإدارة" },
   TEACHER: { href: "/teacher", label: "لوحة المدرس" },
   PARENT: { href: "/parent", label: "لوحة ولي الأمر" },

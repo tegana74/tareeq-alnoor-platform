@@ -49,6 +49,7 @@ model User {
   invoices               Invoice[]
   examAttempts           ExamAttempt[]
   videoViews             VideoView[]
+  bookViews              BookView[]
   favorites              Favorite[]
   bookmarks              Bookmark[]
   posts                  CommunityPost[]
@@ -95,6 +96,7 @@ model Year {
   subjects    Subject[]
   users       User[]
   courses     Course[]
+  classrooms  Classroom[]
 
   @@map("years")
 }
@@ -125,6 +127,7 @@ model Subject {
   year         Year?         @relation(fields: [yearId], references: [id], onDelete: SetNull)
   courses      Course[]
   bankChapters BankChapter[]
+  classrooms   Classroom[]
 
   @@map("subjects")
 }
@@ -142,6 +145,7 @@ model Teacher {
   user         User?
   courses      Course[]
   liveSessions LiveSession[]
+  classrooms   Classroom[]
 
   @@map("teachers")
 }
@@ -176,6 +180,7 @@ model Course {
   favorites     Favorite[]
   invoices      Invoice[]
   liveSessions  LiveSession[]
+  classrooms    Classroom[]
 
   @@map("courses")
 }
@@ -243,6 +248,7 @@ model Book {
   createdAt       DateTime   @default(now())
   section         Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   bookmarks       Bookmark[]
+  views           BookView[]
 
   @@map("books")
 }
@@ -544,7 +550,7 @@ model VideoView {
   id            String   @id @default(cuid())
   userId        String
   videoId       String
-  progress      Int      @default(0) // نسبة مئوية
+  progress      Int      @default(0) // �?�?�?�? �?�?�??
   isCompleted   Boolean  @default(false)
   lastWatchedAt DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -552,6 +558,20 @@ model VideoView {
 
   @@unique([userId, videoId])
   @@map("video_views")
+}
+
+model BookView {
+  id          String   @id @default(cuid())
+  userId      String
+  bookId      String
+  isCompleted Boolean  @default(false)
+  completedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([bookId])
+  @@map("book_views")
 }
 
 model Favorite {
@@ -631,19 +651,46 @@ model LiveSession {
   description     String?
   teacherId       String
   courseId        String?
+  classroomId     String?
   startAt         DateTime
   durationMinutes Int                     @default(60)
   url             String? // رابط البث
   price           Decimal                 @default(0)
   isFree          Boolean                 @default(false)
-  maxCapacity     Int                     @default(0) // 0 = بدون حد
+  maxCapacity     Int                     @default(0) // 0 = بلا حد
+  status          String                  @default("scheduled") // scheduled | waiting | live | ended | recording | archived | cancelled
   createdAt       DateTime                @default(now())
   teacher         Teacher                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   course          Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  classroom       Classroom?              @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   bookings        SessionBooking[]
   attendances     LiveSessionAttendance[]
 
+  @@index([classroomId])
   @@map("live_sessions")
+}
+
+// ============================= قاعات البث المباشر (Live Classroom Foundation) =============================
+
+model Classroom {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  teacherId   String
+  courseId     String?
+  yearId      String?
+  subjectId   String?
+  status      String        @default("active") // active | archived
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  teacher     Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  course      Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  year        Year?         @relation(fields: [yearId], references: [id], onDelete: SetNull)
+  subject     Subject?      @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  sessions    LiveSession[]
+
+  @@index([teacherId])
+  @@map("classrooms")
 }
 
 model SessionBooking {
