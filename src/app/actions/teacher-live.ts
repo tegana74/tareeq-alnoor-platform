@@ -137,3 +137,47 @@ export async function deleteLiveSessionAction(_prev: unknown, formData: FormData
   await prisma.liveSession.delete({ where: { id } })
   return { ok: true }
 }
+
+// ============================= تحديث حالة الجلسة للبث المباشر =============================
+
+import { canTransitionSessionStatus, type LiveSessionStatus } from "@/lib/live-classroom/types"
+
+export async function updateLiveSessionStatusAction(
+  _prev: unknown,
+  formData: FormData
+): Promise<ActionResult> {
+  const u = await user()
+  if (!u) return { ok: false, error: "غير مصرح" }
+
+  const id = String(formData.get("id") ?? "")
+  const targetStatus = String(formData.get("status") ?? "") as LiveSessionStatus
+
+  if (!id) return { ok: false, error: "معرف الجلسة مطلوب" }
+  if (!targetStatus) return { ok: false, error: "الحالة المستهدفة مطلوبة" }
+
+  const session = await prisma.liveSession.findUnique({ where: { id } })
+  if (!session) return { ok: false, error: "الجلسة غير موجودة" }
+
+  // التحقق من صلاحيات الإدارة (أدمن أو معلم الجلسة المالك)
+  if (u.role !== "ADMIN" && session.teacherId !== u.teacherId) {
+    return { ok: false, error: "غير مصرح لك بإدارة هذه الجلسة" }
+  }
+
+  const currentStatus = (session.status || "scheduled") as LiveSessionStatus
+
+  // التحقق من صحة انتقال الحالة
+  if (!canTransitionSessionStatus(currentStatus, targetStatus)) {
+    return {
+      ok: false,
+      error: `انتقال حالة غير صالح من «${currentStatus}» إلى «${targetStatus}»`,
+    }
+  }
+
+  // تحديث الحالة في قاعدة البيانات
+  await prisma.liveSession.update({
+    where: { id },
+    data: { status: targetStatus },
+  })
+
+  return { ok: true }
+}

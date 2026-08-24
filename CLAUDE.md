@@ -12,9 +12,6 @@ Completed phases:
 - FIX-4 — Exam Labels i18n
 - FIX-5 — Exam Import Wizard
 - FIX-6 — AI Exam Expansion
-
-Current next phase:
-
 - FIX-7 — Live Room Shell
 
 ---
