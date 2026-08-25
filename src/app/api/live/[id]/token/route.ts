@@ -54,11 +54,13 @@ export async function GET(
       user.teacherId === session.teacherId
 
     let canPublish = false
+    let canPublishData = false
     let canSubscribe = false
 
     if (isAdmin || isOwnerTeacher) {
       // Teacher owner or admin → Publisher
       canPublish = true
+      canPublishData = true
       canSubscribe = true
     } else {
       // Non-owner teacher → 403
@@ -96,6 +98,7 @@ export async function GET(
       }
 
       canPublish = false
+      canPublishData = false
       canSubscribe = true
     }
 
@@ -133,6 +136,7 @@ export async function GET(
       roomJoin: true,
       room: roomName,
       canPublish,
+      canPublishData,
       canSubscribe,
     })
 

@@ -19,6 +19,7 @@ import { formatPrice } from "@/lib/utils"
 import { updateLiveSessionStatusAction } from "@/app/actions/teacher-live"
 import { BookingPanel } from "./booking-form"
 import { LiveCountdown } from "./live-countdown"
+import { StudentLiveViewer } from "./student-live-viewer"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
 import { Room, RoomEvent, VideoPresets, createLocalTracks, LocalVideoTrack } from "livekit-client"
 
@@ -695,6 +696,19 @@ export function LiveRoomClient({
         </div>
       )}
 
+      {/* حالات مستقبلية — placeholder فقط (LIVE-8D+) */}
+      {(status === "recording" || status === "archived") && (
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+          <Video className="mx-auto h-12 w-12 text-slate-400 mb-3" />
+          <h3 className="text-lg font-black text-navy mb-1">
+            {status === "recording" ? "جارٍ تسجيل الجلسة" : "الجلسة مؤرشفة"}
+          </h3>
+          <p className="text-sm text-slate-500">
+            هذه الميزة غير متاحة بعد — سيتم تفعيلها في مرحلة قادمة.
+          </p>
+        </div>
+      )}
+
       {/* حالة 2: انتهى البث (Ended) */}
       {status === "ended" && (
         <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
@@ -773,15 +787,18 @@ export function LiveRoomClient({
             </div>
           )}
 
-          {/* بدون روابط مضافة بعد */}
-          {!url && (
+          {/* بدون رابط خارجي → LiveKit: المعلم يبث من لوحته والطالب يشاهد كمشاهد فقط */}
+          {!url && !isManager && (
+            <StudentLiveViewer sessionId={sessionId} status={status} />
+          )}
+
+          {/* بدون روابط — عرض المعلم (يبقى كما هو) */}
+          {!url && isManager && (
             <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
               <Radio className="mx-auto h-12 w-12 text-rose-500 mb-3 animate-pulse" />
               <h3 className="text-lg font-black text-navy mb-1">البث المباشر بدأ</h3>
               <p className="text-sm text-slate-500">
-                {isManager
-                  ? "البث المباشر يعمل حالياً. يمكنك التحكم فيه باستخدام لوحة المعلم أعلاه."
-                  : "يرجى الانتظار، لم يقم المعلم ببدء إرسال البث بعد."}
+                البث المباشر يعمل حالياً. يمكنك التحكم فيه باستخدام لوحة المعلم أعلاه.
               </p>
             </div>
           )}
