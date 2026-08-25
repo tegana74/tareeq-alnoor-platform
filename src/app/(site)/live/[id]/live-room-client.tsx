@@ -14,6 +14,7 @@ import {
   Loader2,
   CheckCircle2,
   Users,
+  MonitorUp,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
@@ -22,7 +23,12 @@ import { BookingPanel } from "./booking-form"
 import { LiveCountdown } from "./live-countdown"
 import { StudentLiveViewer } from "./student-live-viewer"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
-import { Room, RoomEvent, VideoPresets, createLocalTracks, LocalVideoTrack } from "livekit-client"
+import { Room, RoomEvent, VideoPresets, createLocalTracks } from "livekit-client"
+import type { LocalVideoTrack } from "livekit-client"
+import {
+  bindPublisherTrackEvents,
+  describeScreenShareFailure,
+} from "@/lib/live-classroom/publisher-media"
 
 interface LiveRoomClientProps {
   sessionId: string
@@ -72,9 +78,14 @@ export function LiveRoomClient({
     "disconnected" | "connecting" | "connected" | "reconnecting"
   >("disconnected")
   const [mediaError, setMediaError] = useState<string>()
+  // LIVE-9A — ثلاث حالات مستقلة للكاميرا (لا نفترض أن enabled يعني أن المسار يعمل):
   const [cameraEnabled, setCameraEnabled] = useState(true)
+  /** مسار كاميرا منشور فعليًا — مصدره أحداث LocalTrackPublished/Unpublished حصراً */
+  const [cameraTrack, setCameraTrack] = useState<LocalVideoTrack | null>(null)
   const [micEnabled, setMicEnabled] = useState(true)
-  const [localVideoTrack, setLocalVideoTrack] = useState<LocalVideoTrack | null>(null)
+  // LIVE-9A — مشاركة الشاشة: نشطة (من الأحداث) + خطأ غير قاتل (إغلاق المنتقي صامت)
+  const [screenShareActive, setScreenShareActive] = useState(false)
+  const [screenShareError, setScreenShareError] = useState<string>()
   const [hasLeft, setHasLeft] = useState(false)
   // LIVE-8D — polish: عدّاد المشاهدين وجودة الاتصال
   const [viewerCount, setViewerCount] = useState(0)
@@ -169,6 +180,8 @@ export function LiveRoomClient({
     setHasLeft(false)
 
     let activeRoom: Room | null = null
+    // LIVE-9A — فاك ربط أحداث النشر عند أي فشل لاحق (معرّف قبل try ليصل catch)
+    let unbindPublisher: (() => void) | null = null
 
     try {
       // 1. Fetch token
@@ -201,10 +214,22 @@ export function LiveRoomClient({
       r.on(RoomEvent.Connected, () => setConnectionState("connected"))
       r.on(RoomEvent.Disconnected, () => {
         setConnectionState("disconnected")
-        setLocalVideoTrack(null)
+        // LIVE-9A — تنظيف حالة المسارات المشتقة من الأحداث عند فقد الغرفة
+        setCameraTrack(null)
+        setScreenShareActive(false)
       })
       r.on(RoomEvent.Reconnecting, () => setConnectionState("reconnecting"))
       r.on(RoomEvent.Reconnected, () => setConnectionState("connected"))
+
+      // LIVE-9A — مصدر الحقيقة: أحداث النشر المحلي تحدّث الكاميرا ومشاركة الشاشة.
+      // يغطي أيضاً «إيقاف المشاركة» من واجهة المتصفح (LocalTrackUnpublished ينطلق عندها).
+      unbindPublisher = bindPublisherTrackEvents(r, {
+        onCameraTrack: (track) => setCameraTrack(track),
+        onScreenShareActive: (active) => {
+          setScreenShareActive(active)
+          if (!active) setScreenShareError(undefined)
+        },
+      })
 
       // LIVE-8D — polish: عدّاد المشاهدين (المشاركون البعيدون) وجودة اتصال الناشر
       const updateViewers = () => setViewerCount(r.remoteParticipants.size)
@@ -243,11 +268,8 @@ export function LiveRoomClient({
         }
       })
 
-      // Find local video track for preview
-      const videoTrack = tracks.find((t) => t.kind === "video")
-      if (videoTrack instanceof LocalVideoTrack) {
-        setLocalVideoTrack(videoTrack)
-      }
+      // LIVE-9A — لا ضبط تفاؤلي لمسار الكاميرا هنا: كل publishTrack ينطلق منه
+      // LocalTrackPublished فيحدّث الحالة من المستمع أعلاه (مصدر وحيد للحقيقة).
 
       // Publish tracks
       for (const track of tracks) {
@@ -273,9 +295,11 @@ export function LiveRoomClient({
       if (activeRoom) {
         activeRoom.disconnect()
       }
+      unbindPublisher?.()
       setRoom(null)
       setConnectionState("disconnected")
-      setLocalVideoTrack(null)
+      setCameraTrack(null)
+      setScreenShareActive(false)
 
       const errMsg = err instanceof Error ? err.message : String(err)
       if (errMsg === "TOKEN_ERROR_AUTH") {
@@ -299,18 +323,65 @@ export function LiveRoomClient({
     }
   }, [sessionId, status, router])
 
+  // LIVE-9A — لا تحديث تفاؤلي: الحالة تنعكس فقط بعد نجاح الـ SDK، ومن الأحداث.
+  // الكاميرا OFF = unpublish فعلي في livekit-client v2، وON يعيد الالتقاط والنشر
+  // داخليًا — أي publishTrack يدوي من طرفنا سيصنع نشرًا مكررًا.
   const toggleCamera = async () => {
-    if (!room) return
-    const enabled = !cameraEnabled
-    setCameraEnabled(enabled)
-    await room.localParticipant.setCameraEnabled(enabled)
+    if (!room || connectionState === "connecting") return
+    const target = !cameraEnabled
+    try {
+      await room.localParticipant.setCameraEnabled(target)
+      setCameraEnabled(target)
+    } catch (err) {
+      console.error("[LIVEKIT_CAMERA_TOGGLE_FAIL]", err)
+      setMediaError(
+        target
+          ? "تعذر تشغيل الكاميرا. تحقق من الإذن ومن عدم استخدام برنامج آخر لها."
+          : "تعذر إيقاف الكاميرا. حاول مرة أخرى."
+      )
+    }
   }
 
   const toggleMicrophone = async () => {
-    if (!room) return
-    const enabled = !micEnabled
-    setMicEnabled(enabled)
-    await room.localParticipant.setMicrophoneEnabled(enabled)
+    if (!room || connectionState === "connecting") return
+    const target = !micEnabled
+    try {
+      await room.localParticipant.setMicrophoneEnabled(target)
+      setMicEnabled(target)
+    } catch (err) {
+      console.error("[LIVEKIT_MIC_TOGGLE_FAIL]", err)
+      setMediaError(
+        target ? "تعذر تفعيل الميكروفون." : "تعذر كتم الميكروفون. حاول مرة أخرى."
+      )
+    }
+  }
+
+  // LIVE-9A — مشاركة الشاشة (المعلم فقط). الصوت اختياري: إن لم يدعمه المتصفح
+  // تستمر المشاركة بدونه. إغلاق منتقي الشاشة إلغاء غير قاتل بلا شريط خطأ.
+  const toggleScreenShare = async () => {
+    if (!room || connectionState === "connecting") return
+
+    if (screenShareActive) {
+      try {
+        await room.localParticipant.setScreenShareEnabled(false)
+      } catch (err) {
+        console.error("[LIVEKIT_SCREENSHARE_STOP_FAIL]", err)
+      }
+      // الحالة الفعلية ستُحدَّث من حدث LocalTrackUnpublished
+      return
+    }
+
+    setScreenShareError(undefined)
+    try {
+      await room.localParticipant.setScreenShareEnabled(true, { audio: true })
+      // النجاح يُشتق من LocalTrackPublished — لا ضبط تفاؤلي هنا
+    } catch (err) {
+      const failure = describeScreenShareFailure(err)
+      console.error("[LIVEKIT_SCREENSHARE_START_FAIL]", err)
+      if (failure.kind !== "cancelled" && failure.message) {
+        setScreenShareError(failure.message)
+      }
+    }
   }
 
   const leaveRoom = () => {
@@ -320,7 +391,8 @@ export function LiveRoomClient({
     }
     setRoom(null)
     setConnectionState("disconnected")
-    setLocalVideoTrack(null)
+    setCameraTrack(null)
+    setScreenShareActive(false)
   }
 
   const endLiveSession = async () => {
@@ -328,8 +400,9 @@ export function LiveRoomClient({
     setActionError(undefined)
 
     startTransition(async () => {
-      // 1. stop publishing
+      // 1. stop publishing (كاميرا + شاشة + ميكروفون)
       await room.localParticipant.setCameraEnabled(false)
+      await room.localParticipant.setScreenShareEnabled(false).catch(() => undefined)
       await room.localParticipant.setMicrophoneEnabled(false)
 
       // 2. update DB to ended
@@ -343,11 +416,13 @@ export function LiveRoomClient({
         room.disconnect()
         setRoom(null)
         setConnectionState("disconnected")
-        setLocalVideoTrack(null)
+        setCameraTrack(null)
+        setScreenShareActive(false)
         setStatus("ended")
         router.refresh()
       } else {
         // restore track states on database failure
+        await room.localParticipant.setScreenShareEnabled(screenShareActive).catch(() => undefined)
         await room.localParticipant.setCameraEnabled(cameraEnabled)
         await room.localParticipant.setMicrophoneEnabled(micEnabled)
         setActionError(res.error || "فشل إنهاء البث في قاعدة البيانات")
@@ -365,16 +440,24 @@ export function LiveRoomClient({
     }
   }, [status, isManager, url, room, hasLeft, startLiveKitPublishing])
 
-  // Attach local video track to preview element
+  // LIVE-9A — ربط مسار الكاميرا بعنصر المعاينة. يعتمد على cameraTrack وcameraEnabled
+  // معاً: عند OFF→ON يتغير المسار نفسه (unpublish ثم مسار جديد) فيُفكّ القديم
+  // ويُرفق الجديد — دون تكرار إرفاق ولا عنصر ميت.
   useEffect(() => {
     const videoElem = videoRef.current
-    if (localVideoTrack && videoElem) {
-      localVideoTrack.attach(videoElem)
-      return () => {
-        localVideoTrack.detach(videoElem)
-      }
+    if (!videoElem) return
+
+    if (!cameraEnabled || !cameraTrack) {
+      // تفريغ العنصر من أي مسار قديم عند الإيقاف
+      videoElem.srcObject = null
+      return
     }
-  }, [localVideoTrack])
+
+    cameraTrack.attach(videoElem)
+    return () => {
+      cameraTrack.detach(videoElem)
+    }
+  }, [cameraTrack, cameraEnabled])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -526,7 +609,7 @@ export function LiveRoomClient({
       {isManager && !url && room && (
         <div className="mb-6 rounded-2xl border-2 border-slate-200 bg-black p-4 shadow-sm relative overflow-hidden">
           <div className="aspect-video w-full bg-slate-900 rounded-xl relative flex items-center justify-center overflow-hidden">
-            {localVideoTrack && cameraEnabled ? (
+            {cameraEnabled && cameraTrack ? (
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover scale-x-[-1]"
@@ -597,12 +680,34 @@ export function LiveRoomClient({
                 الميكروفون مكتوم
               </div>
             )}
+
+            {/* LIVE-9A — شارة مشاركة الشاشة النشطة */}
+            {screenShareActive && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-blue-600/90 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md flex items-center gap-1.5">
+                <MonitorUp className="h-3.5 w-3.5" />
+                جاري مشاركة الشاشة
+              </div>
+            )}
           </div>
 
           {/* Media Errors */}
           {mediaError && (
             <div className="mt-3 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-600 font-bold">
               {mediaError}
+            </div>
+          )}
+
+          {/* LIVE-9A — خطأ مشاركة الشاشة (غير قاتل) */}
+          {screenShareError && (
+            <div className="mt-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-700 font-bold flex items-center justify-between gap-2">
+              <span>{screenShareError}</span>
+              <button
+                onClick={() => setScreenShareError(undefined)}
+                className="text-slate-400 hover:text-slate-500"
+                aria-label="إغلاق التنبيه"
+              >
+                ✕
+              </button>
             </div>
           )}
 
@@ -626,6 +731,28 @@ export function LiveRoomClient({
                 aria-label={micEnabled ? "كتم الميكروفون" : "تفعيل الميكروفون"}
               >
                 {micEnabled ? "كتم الميكروفون" : "تفعيل الميكروفون"}
+              </Button>
+              {/* LIVE-9A — مشاركة الشاشة: كامل الشاشة / نافذة / تبويب حسب قدرات المتصفح */}
+              <Button
+                variant={screenShareActive ? "primary" : "outline"}
+                size="sm"
+                onClick={toggleScreenShare}
+                disabled={connectionState === "connecting"}
+                aria-label={
+                  screenShareActive ? "إيقاف مشاركة الشاشة" : "مشاركة الشاشة"
+                }
+              >
+                {screenShareActive ? (
+                  <>
+                    <MonitorUp className="h-4 w-4" />
+                    إيقاف مشاركة الشاشة
+                  </>
+                ) : (
+                  <>
+                    <MonitorUp className="h-4 w-4" />
+                    مشاركة الشاشة
+                  </>
+                )}
               </Button>
             </div>
 

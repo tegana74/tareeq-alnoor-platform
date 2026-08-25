@@ -5,7 +5,7 @@
 // LIVE-8D: heartbeat أثناء المشاهدة الفعلية + retry داخلي + مؤشر جودة الشبكة.
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Radio, Loader2, MonitorPlay, Volume2, AlertCircle, Wifi } from "lucide-react"
+import { Radio, Loader2, MonitorPlay, MonitorUp, Volume2, AlertCircle, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RoomEvent, type RemoteTrack } from "livekit-client"
 import {
@@ -14,6 +14,7 @@ import {
   shouldUseLiveKitViewer,
   type StudentSubscriberHandle,
 } from "@/lib/live-classroom/student-subscriber"
+import { isScreenShareRemoteTrack } from "@/lib/live-classroom/publisher-media"
 import { useHeartbeat } from "@/lib/live-classroom/use-heartbeat"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
 
@@ -31,11 +32,16 @@ const QUALITY_LABELS: Record<string, string> = {
 }
 
 export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
+  // LIVE-9A — عنصران دائمان في الـ DOM (لا إزاحة/تركيب شرطي يفقد الـ refs):
+  // stage للعرض الرئيسي (شاشة المعلم إن وجدت وإلا الكاميرا) + صورة مصغرة للكاميرا.
+  const stageRef = useRef<HTMLVideoElement>(null)
+  const pipCamRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const [connection, setConnection] = useState<ConnectionState>("idle")
-  const [hasVideo, setHasVideo] = useState(false)
+  // مسارات الفيديو البعيدة مُصنَّفة بالمصدر — الشاشة تتصدر والكاميرا ثانوية
+  const [remoteCamTrack, setRemoteCamTrack] = useState<RemoteTrack | null>(null)
+  const [remoteScreenTrack, setRemoteScreenTrack] = useState<RemoteTrack | null>(null)
   const [, setHasAudio] = useState(false)
   const [needsUnmute, setNeedsUnmute] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string>()
@@ -50,22 +56,22 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
   const detachHandlersRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(true)
   const firstTrackRef = useRef(false)
-  const videoElRef = useRef<HTMLVideoElement | null>(null)
-  const audioElRef = useRef<HTMLAudioElement | null>(null)
+
+  const hasStage = Boolean(remoteCamTrack || remoteScreenTrack)
 
   // نبضات الحضور — نشطة فقط عند اتصال فعلي + وصول أول مسار + جلسة live
   useHeartbeat({ sessionId, active: firstTrackArrived && connection === "connected", sessionLive: status === "live" })
 
   const attachTrack = useCallback((track: RemoteTrack) => {
     if (track.kind === "video") {
-      const el = videoElRef.current ?? videoRef.current
-      if (el) {
-        track.attach(el)
-        el.play().catch(() => undefined)
+      // التوجيه حسب مصدر النشر — لا افتراض بأن أي فيديو هو الكاميرا
+      if (isScreenShareRemoteTrack(track)) {
+        setRemoteScreenTrack(track)
+      } else {
+        setRemoteCamTrack(track)
       }
-      setHasVideo(true)
     } else if (track.kind === "audio") {
-      const el = audioElRef.current ?? audioRef.current
+      const el = audioRef.current
       if (el) {
         track.attach(el)
         el.play().catch(() => {
@@ -105,13 +111,19 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           onAudioTrack: attachTrack,
           onTrackRemoved: (track) => {
             track.detach()
-            if (track.kind === "video") setHasVideo(false)
-            if (track.kind === "audio") setHasAudio(false)
+            if (isScreenShareRemoteTrack(track)) {
+              setRemoteScreenTrack((cur) => (cur === track ? null : cur))
+            } else if (track.kind === "video") {
+              setRemoteCamTrack((cur) => (cur === track ? null : cur))
+            } else if (track.kind === "audio") {
+              setHasAudio(false)
+            }
             // توقف الفيديو ≠ انتهاء الجلسة — تبقى الحالة live من الـ polling
           },
           onParticipantLeft: () => {
             // مغادرة الناشر لا تعني انتهاء الجلسة
-            setHasVideo(false)
+            setRemoteCamTrack(null)
+            setRemoteScreenTrack(null)
             setHasAudio(false)
           },
         })
@@ -181,11 +193,39 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
     }
   }, [sessionId, status, connectAttempt, attachTrack])
 
-  // ─── ربط عناصر الوسائط بعد التركيب ────────────────────────────────────────
+  // ─── ربط عناصر العرض بعد التركيب/تغير المسارات ────────────────────────────
+  // المرحلة الرئيسية: شاشة المعلم إن كانت نشطة، وإلا الكاميرا.
   useEffect(() => {
-    videoElRef.current = videoRef.current
-    audioElRef.current = audioRef.current
-  }, [hasVideo])
+    const stageEl = stageRef.current
+    const pipEl = pipCamRef.current
+    if (!stageEl) return
+
+    if (remoteScreenTrack) {
+      remoteScreenTrack.attach(stageEl)
+      void stageEl.play().catch(() => undefined)
+    } else if (remoteCamTrack) {
+      remoteCamTrack.attach(stageEl)
+      void stageEl.play().catch(() => undefined)
+    }
+
+    // الصورة المصغرة تعرض الكاميرا فقط عندما تتصدر الشاشة
+    if (pipEl) {
+      if (remoteScreenTrack && remoteCamTrack) {
+        remoteCamTrack.attach(pipEl)
+        void pipEl.play().catch(() => undefined)
+      } else {
+        pipEl.srcObject = null
+      }
+    }
+
+    return () => {
+      if (remoteScreenTrack) remoteScreenTrack.detach(stageEl)
+      if (remoteCamTrack) {
+        remoteCamTrack.detach(stageEl)
+        if (pipEl) remoteCamTrack.detach(pipEl)
+      }
+    }
+  }, [remoteScreenTrack, remoteCamTrack])
 
   // ─── زر تشغيل الصوت عند حجب autoplay ──────────────────────────────────────
   const enableAudio = useCallback(() => {
@@ -201,6 +241,8 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
   const retryConnection = useCallback(() => {
     firstTrackRef.current = false
     setFirstTrackArrived(false)
+    setRemoteCamTrack(null)
+    setRemoteScreenTrack(null)
     setConnectAttempt((n) => n + 1)
   }, [])
 
@@ -214,10 +256,23 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         {/* الصوت البعيد — عنصر مخفي دائمًا (المشاهد لا يرسل صوتًا) */}
         <audio ref={audioRef} autoPlay playsInline className="hidden" />
 
-        {hasVideo ? (
-          <video ref={videoRef} className="h-full w-full object-cover" autoPlay playsInline />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-center text-slate-400">
+        {/* LIVE-9A — عنصرا عرض دائمان (لا تركيب شرطي يفقد الـ refs):
+            المرحلة = شاشة المعلم إن نشطة وإلا الكاميرا؛ الصورة المصغرة = الكاميرا أثناء مشاركة الشاشة */}
+        <video ref={stageRef} className={`h-full w-full object-contain ${hasStage ? "" : "invisible absolute"}`} autoPlay playsInline />
+
+        {remoteScreenTrack && remoteCamTrack && (
+          <div className="absolute bottom-3 right-3 z-20 h-[22%] max-h-28 w-[32%] overflow-hidden rounded-lg border border-white/30 bg-slate-900 shadow-lg">
+            <video
+              ref={pipCamRef}
+              className="h-full w-full object-cover scale-x-[-1]"
+              autoPlay
+              playsInline
+            />
+          </div>
+        )}
+
+        {!hasStage && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-slate-400">
             {connection === "connecting" ? (
               <>
                 <Loader2 className="mb-3 h-12 w-12 animate-spin text-blue-500" />
@@ -258,7 +313,7 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         {/* شارة الحالة المباشرة */}
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
           {/* مؤشر جودة الشبكة */}
-          {quality !== "unknown" && hasVideo && (
+          {quality !== "unknown" && hasStage && (
             <span
               className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold shadow-md ${
                 quality === "excellent"
@@ -272,18 +327,25 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
               {QUALITY_LABELS[quality] ?? ""}
             </span>
           )}
+          {/* LIVE-9A — شارة «يشارك شاشة» عندما تتصدر الشاشة */}
+          {remoteScreenTrack ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-blue-600 px-2.5 py-1 text-xs font-black text-white shadow-md">
+              <MonitorUp className="h-3 w-3" />
+              يشارك الشاشة الآن
+            </span>
+          ) : null}
           <span
             className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black shadow-md ${
-              hasVideo ? "bg-rose-600 text-white animate-pulse" : "bg-slate-800 text-slate-300"
+              hasStage ? "bg-rose-600 text-white animate-pulse" : "bg-slate-800 text-slate-300"
             }`}
           >
-            {hasVideo && <Radio className="h-3 w-3" />}
-            {hasVideo ? "مباشر الآن" : "بانتظار البث"}
+            {hasStage && <Radio className="h-3 w-3" />}
+            {hasStage ? "مباشر الآن" : "بانتظار البث"}
           </span>
         </div>
 
         {/* مؤشرات حالة الاتصال السفلية */}
-        {connection === "connected" && hasVideo && (
+        {connection === "connected" && hasStage && (
           <div className="absolute bottom-3 left-3 z-10">
             <span className="rounded-full bg-green-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
               متصل
