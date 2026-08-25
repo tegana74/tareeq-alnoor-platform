@@ -1,18 +1,20 @@
 "use client"
 
-// LIVE-8C — Student LiveKit Viewer
+// LIVE-8C/8D — Student LiveKit Viewer
 // مشاهد فقط: لا كاميرا، لا ميكروفون، لا إنشاء مسارات محلية إطلاقاً.
+// LIVE-8D: heartbeat أثناء المشاهدة الفعلية + retry داخلي + مؤشر جودة الشبكة.
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Radio, Loader2, MonitorPlay, Volume2, AlertCircle } from "lucide-react"
+import { Radio, Loader2, MonitorPlay, Volume2, AlertCircle, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RoomEvent } from "livekit-client"
+import { RoomEvent, type RemoteTrack } from "livekit-client"
 import {
   connectStudentSubscriber,
   attachRemoteTrackHandlers,
   shouldUseLiveKitViewer,
   type StudentSubscriberHandle,
 } from "@/lib/live-classroom/student-subscriber"
+import { useHeartbeat } from "@/lib/live-classroom/use-heartbeat"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
 
 type ConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected" | "error"
@@ -20,6 +22,12 @@ type ConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "d
 interface StudentLiveViewerProps {
   sessionId: string
   status: LiveSessionStatus
+}
+
+const QUALITY_LABELS: Record<string, string> = {
+  excellent: "ممتازة",
+  good: "متوسط",
+  poor: "ضعيفة",
 }
 
 export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps) {
@@ -31,13 +39,49 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
   const [, setHasAudio] = useState(false)
   const [needsUnmute, setNeedsUnmute] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string>()
-  // أول مسار بعيد يصل → الطالب يشاهد فعلاً (يُستخدم لتفعيل الحضور)
+  const [quality, setQuality] = useState<"excellent" | "good" | "poor" | "unknown" | "lost">("unknown")
+  // أول مسار بعيد يصل → الطالب يشاهد فعلاً (يُستخدم لتفعيل الحضور والنبضات)
   const [firstTrackArrived, setFirstTrackArrived] = useState(false)
+
+  // retry داخلي — يعيد الاتصال دون إعادة تحميل الصفحة كاملة
+  const [connectAttempt, setConnectAttempt] = useState(0)
 
   const handleRef = useRef<StudentSubscriberHandle | null>(null)
   const detachHandlersRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(true)
   const firstTrackRef = useRef(false)
+  const videoElRef = useRef<HTMLVideoElement | null>(null)
+  const audioElRef = useRef<HTMLAudioElement | null>(null)
+
+  // نبضات الحضور — نشطة فقط عند اتصال فعلي + وصول أول مسار + جلسة live
+  useHeartbeat({ sessionId, active: firstTrackArrived && connection === "connected", sessionLive: status === "live" })
+
+  const attachTrack = useCallback((track: RemoteTrack) => {
+    if (track.kind === "video") {
+      const el = videoElRef.current ?? videoRef.current
+      if (el) {
+        track.attach(el)
+        el.play().catch(() => undefined)
+      }
+      setHasVideo(true)
+    } else if (track.kind === "audio") {
+      const el = audioElRef.current ?? audioRef.current
+      if (el) {
+        track.attach(el)
+        el.play().catch(() => {
+          // حجب autoplay للمتصفح — ليس فشلاً في LiveKit؛ نعرض زر التشغيل
+          if (mountedRef.current) setNeedsUnmute(true)
+        })
+      }
+      setHasAudio(true)
+    }
+    if (!firstTrackRef.current) {
+      firstTrackRef.current = true
+      setFirstTrackArrived(true)
+      // تسجيل الحضور عبر الـ endpoint الحالي عند أول مسار فعلي (idempotent server-side)
+      fetch(`/api/live/${sessionId}/attend`, { method: "POST" }).catch(() => undefined)
+    }
+  }, [sessionId])
 
   // ─── الاتصال بالغرفة كمشاهد ───────────────────────────────────────────────
   useEffect(() => {
@@ -51,42 +95,14 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
       try {
         const handle = await connectStudentSubscriber(sessionId)
         if (!mountedRef.current) {
-          // المكون فُكّ تركيبه أثناء الاتصال — نظّف فوراً
           handle.disconnect()
           return
         }
         handleRef.current = handle
 
         detachHandlersRef.current = attachRemoteTrackHandlers(handle.room, {
-          onVideoTrack: (track) => {
-            if (!mountedRef.current) return
-            const el = videoRef.current
-            if (el) {
-              track.attach(el)
-              el.play().catch(() => undefined)
-            }
-            setHasVideo(true)
-            if (!firstTrackRef.current) {
-              firstTrackRef.current = true
-              setFirstTrackArrived(true)
-            }
-          },
-          onAudioTrack: (track) => {
-            if (!mountedRef.current) return
-            const el = audioRef.current
-            if (el) {
-              track.attach(el)
-              el.play().catch(() => {
-                // حجب autoplay للمتصفح — ليس فشلاً في LiveKit؛ نعرض زر التشغيل
-                if (mountedRef.current) setNeedsUnmute(true)
-              })
-            }
-            setHasAudio(true)
-            if (!firstTrackRef.current) {
-              firstTrackRef.current = true
-              setFirstTrackArrived(true)
-            }
-          },
+          onVideoTrack: attachTrack,
+          onAudioTrack: attachTrack,
           onTrackRemoved: (track) => {
             track.detach()
             if (track.kind === "video") setHasVideo(false)
@@ -111,6 +127,14 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           setConnection((c) => (c === "reconnecting" ? "reconnecting" : "disconnected"))
         })
 
+        // جودة الاتصال — حدث على مستوى الغرفة يصدر عن الناشر البعيد
+        handle.room.on(
+          RoomEvent.ConnectionQualityChanged,
+          (q: "excellent" | "good" | "poor" | "unknown" | "lost", participant?: unknown) => {
+            if (participant) setQuality(q)
+          }
+        )
+
         setConnection("connected")
 
         // مسارات موجودة مسبقاً (الطالب دخل والمعلم ينشر بالفعل)
@@ -118,28 +142,7 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           for (const pub of p.trackPublications.values()) {
             const t = pub.track
             if (!t) continue
-            if (t.kind === "video") {
-              const vEl = videoRef.current
-              if (vEl) {
-                t.attach(vEl)
-                vEl.play().catch(() => undefined)
-                setHasVideo(true)
-                firstTrackRef.current = true
-                setFirstTrackArrived(true)
-              }
-            }
-            if (t.kind === "audio") {
-              const aEl = audioRef.current
-              if (aEl) {
-                t.attach(aEl)
-                aEl.play().catch(() => {
-                  if (mountedRef.current) setNeedsUnmute(true)
-                })
-                setHasAudio(true)
-                firstTrackRef.current = true
-                setFirstTrackArrived(true)
-              }
-            }
+            attachTrack(t as RemoteTrack)
           }
         }
       } catch (err: unknown) {
@@ -176,7 +179,13 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
       }
       handleRef.current = null
     }
-  }, [sessionId, status])
+  }, [sessionId, status, connectAttempt, attachTrack])
+
+  // ─── ربط عناصر الوسائط بعد التركيب ────────────────────────────────────────
+  useEffect(() => {
+    videoElRef.current = videoRef.current
+    audioElRef.current = audioRef.current
+  }, [hasVideo])
 
   // ─── زر تشغيل الصوت عند حجب autoplay ──────────────────────────────────────
   const enableAudio = useCallback(() => {
@@ -186,6 +195,13 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         .then(() => setNeedsUnmute(false))
         .catch(() => undefined)
     }
+  }, [])
+
+  // ─── retry داخلي بدون reload ───────────────────────────────────────────────
+  const retryConnection = useCallback(() => {
+    firstTrackRef.current = false
+    setFirstTrackArrived(false)
+    setConnectAttempt((n) => n + 1)
   }, [])
 
   // ─── عدم استخدام المشاهد خارج جلسة LiveKit مباشرة ─────────────────────────
@@ -217,12 +233,7 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
                 <AlertCircle className="mb-3 h-12 w-12 text-rose-500" />
                 <p className="text-sm font-bold text-rose-400">{errorMsg}</p>
                 {connection === "disconnected" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.location.reload()}
-                    className="mt-4"
-                  >
+                  <Button variant="outline" size="sm" onClick={retryConnection} className="mt-4">
                     إعادة المحاولة
                   </Button>
                 )}
@@ -231,12 +242,7 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
               <>
                 <AlertCircle className="mb-3 h-12 w-12 text-slate-500" />
                 <p className="text-sm font-bold">الاتصال منقطع</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.location.reload()}
-                  className="mt-4"
-                >
+                <Button variant="outline" size="sm" onClick={retryConnection} className="mt-4">
                   إعادة المحاولة
                 </Button>
               </>
@@ -250,7 +256,22 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         )}
 
         {/* شارة الحالة المباشرة */}
-        <div className="absolute top-3 right-3 z-10">
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {/* مؤشر جودة الشبكة */}
+          {quality !== "unknown" && hasVideo && (
+            <span
+              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold shadow-md ${
+                quality === "excellent"
+                  ? "bg-green-600/90 text-white"
+                  : quality === "good"
+                    ? "bg-amber-500/90 text-white"
+                    : "bg-rose-600/90 text-white"
+              }`}
+            >
+              <Wifi className="h-3 w-3" />
+              {QUALITY_LABELS[quality] ?? ""}
+            </span>
+          )}
           <span
             className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black shadow-md ${
               hasVideo ? "bg-rose-600 text-white animate-pulse" : "bg-slate-800 text-slate-300"
@@ -288,28 +309,6 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           اضغط لتشغيل الصوت
         </button>
       )}
-
-      {/* hook marker يُستخدم في الاختبارات — غير مرئي للمستخدم */}
-      <AttendanceTrigger sessionId={sessionId} active={firstTrackArrived} />
     </div>
   )
-}
-
-/**
- * يسجل الحضور عبر الـ endpoint الحالي عندما يصل أول مسار بعيد فعلي.
- * لا heartbeat هنا (LIVE-8D) — استدعاء واحد فقط، والـ route نفسه يتحقق server-side.
- */
-function AttendanceTrigger({ sessionId, active }: { sessionId: string; active: boolean }) {
-  useEffect(() => {
-    if (!active) return
-    let cancelled = false
-    fetch(`/api/live/${sessionId}/attend`, { method: "POST" }).catch(() => {
-      if (!cancelled) void 0
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId, active])
-
-  return null
 }
