@@ -5,9 +5,9 @@
 // LIVE-8D: heartbeat أثناء المشاهدة الفعلية + retry داخلي + مؤشر جودة الشبكة.
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Radio, Loader2, MonitorPlay, MonitorUp, Volume2, AlertCircle, Wifi } from "lucide-react"
+import { Radio, Loader2, MonitorPlay, MonitorUp, Volume2, AlertCircle, Wifi, ShieldX } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RoomEvent, type RemoteTrack } from "livekit-client"
+import { RoomEvent, DisconnectReason, type RemoteTrack } from "livekit-client"
 import {
   connectStudentSubscriber,
   attachRemoteTrackHandlers,
@@ -48,6 +48,14 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
   const [quality, setQuality] = useState<"excellent" | "good" | "poor" | "unknown" | "lost">("unknown")
   // أول مسار بعيد يصل → الطالب يشاهد فعلاً (يُستخدم لتفعيل الحضور والنبضات)
   const [firstTrackArrived, setFirstTrackArrived] = useState(false)
+  /**
+   * LIVE-9C — أخرجه المعلم من الغرفة.
+   *
+   * السبب يأتي من خادم LiveKit نفسه (PARTICIPANT_REMOVED = نداء
+   * RoomService.RemoveParticipant) فلا يُلبَس بانقطاع شبكة: لا زر «إعادة
+   * المحاولة» بعده، لأن حالة "kicked" في قاعدة البيانات ترفض أي توكن جديد.
+   */
+  const [removedByHost, setRemovedByHost] = useState(false)
 
   // retry داخلي — يعيد الاتصال دون إعادة تحميل الصفحة كاملة
   const [connectAttempt, setConnectAttempt] = useState(0)
@@ -134,8 +142,17 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         handle.room.on(RoomEvent.Reconnected, () => {
           if (mountedRef.current) setConnection("connected")
         })
-        handle.room.on(RoomEvent.Disconnected, () => {
+        handle.room.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
           if (!mountedRef.current) return
+          // LIVE-9C — إخراج بقرار المعلم: حالة نهائية، ولا تُعالَج كإعادة اتصال
+          if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
+            setRemovedByHost(true)
+            setRemoteCamTrack(null)
+            setRemoteScreenTrack(null)
+            setHasAudio(false)
+            setConnection("disconnected")
+            return
+          }
           setConnection((c) => (c === "reconnecting" ? "reconnecting" : "disconnected"))
         })
 
@@ -239,12 +256,14 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
 
   // ─── retry داخلي بدون reload ───────────────────────────────────────────────
   const retryConnection = useCallback(() => {
+    // LIVE-9C — الإخراج بقرار المعلم لا يُعاد منه المحاولة (السيرفر يرفض التوكن)
+    if (removedByHost) return
     firstTrackRef.current = false
     setFirstTrackArrived(false)
     setRemoteCamTrack(null)
     setRemoteScreenTrack(null)
     setConnectAttempt((n) => n + 1)
-  }, [])
+  }, [removedByHost])
 
   // ─── عدم استخدام المشاهد خارج جلسة LiveKit مباشرة ─────────────────────────
   if (!shouldUseLiveKitViewer(status, null)) return null
@@ -273,7 +292,17 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
 
         {!hasStage && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-slate-400">
-            {connection === "connecting" ? (
+            {removedByHost ? (
+              <>
+                <ShieldX className="mb-3 h-12 w-12 text-rose-500" />
+                <p className="text-sm font-black text-rose-400">
+                  تم إخراجك من الجلسة بواسطة المعلم
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  لا يمكنك العودة حتى يعيد المعلم قبولك.
+                </p>
+              </>
+            ) : connection === "connecting" ? (
               <>
                 <Loader2 className="mb-3 h-12 w-12 animate-spin text-blue-500" />
                 <p className="text-sm font-black">جاري الاتصال...</p>

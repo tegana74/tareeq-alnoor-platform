@@ -7,8 +7,18 @@
 
 import type { LiveSessionStatus } from "./types"
 
-/** حالات طلب الدخول المخزنة. لا حالات إضافية بلا ضرورة. */
-export const ADMISSION_STATUSES = ["pending", "approved", "rejected"] as const
+/**
+ * حالات طلب الدخول المخزنة. لا حالات إضافية بلا ضرورة.
+ *
+ * LIVE-9C: أُضيفت "kicked" — قيمة رابعة على نفس العمود النصي، بلا migration
+ * (انظر الملاحظة التصميمية أدناه و prisma/schema.prisma).
+ */
+export const ADMISSION_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "kicked",
+] as const
 export type AdmissionStatus = (typeof ADMISSION_STATUSES)[number]
 
 /**
@@ -17,17 +27,27 @@ export type AdmissionStatus = (typeof ADMISSION_STATUSES)[number]
  */
 export type AdmissionState = AdmissionStatus | "none"
 
-/** القرارات المتاحة للمعلم — approve / reject فقط في هذه المرحلة. */
-export type AdmissionDecision = "approved" | "rejected"
+/** القرارات المتاحة للمعلم — approve / reject، و kicked من LIVE-9C. */
+export type AdmissionDecision = "approved" | "rejected" | "kicked"
 
 /**
- * ملاحظة تصميمية (LIVE-9C):
+ * ملاحظة تصميمية (LIVE-9B → LIVE-9C):
  * لم نُضف "left" لأن المغادرة حدث اتصال في LiveKit ولا تحمل أي معنى تصريحي —
  * الموافقة تبقى سارية فيعود الطالب فوراً دون طلب جديد.
- * "kicked" سيكون ضرورياً في LIVE-9C: بدونه يستطيع الطالب المطرود إعادة طلب توكن
- * فوراً لأن سجله يبقى approved. ولأن العمود نصي (String) فإن إضافة "kicked"
- * لاحقاً لا تتطلب migration جديدة — قيمة رابعة على نفس العمود.
+ *
+ * LIVE-9C — "kicked" مُنفَّذة الآن: بدونها يستطيع الطالب المطرود إعادة طلب توكن
+ * فوراً لأن سجله يبقى approved (وLiveKit نفسها تصرّح في JSDoc الخاص بـ
+ * removeParticipant أن المشارك المُزال يستطيع العودة). العمود نصي (String)
+ * فلم تُطلب أي migration — قيمة رابعة على نفس العمود.
+ *
+ * "kicked" حالة نهائية من جهة الطالب: لا يرفعها طلب جديد ولا إعادة تحميل
+ * الصفحة، ولا يرفعها إلا قرار معلم صريح (approve).
  */
+
+/** هل هذه الحالة تمنع الطالب من الدخول نهائياً حتى يتدخل المعلم؟ */
+export function isKickedState(state: AdmissionState): boolean {
+  return state === "kicked"
+}
 
 /**
  * هل هذه الجلسة تُدار بنظام طلبات الدخول؟
@@ -83,7 +103,9 @@ export function toAdmissionState(
  *
  * - المعلم/الأدمن: لا تمر من هنا إطلاقاً (سلوكهم لم يتغير).
  * - جلسة برابط خارجي: نظام الدخول لا ينطبق → السلوك القديم كما هو.
- * - جلسة LiveKit: يجب أن تكون حالة الطالب approved.
+ * - جلسة LiveKit: يجب أن تكون حالة الطالب approved حصراً.
+ *   pending / rejected / kicked / none → لا توكن. المقارنة بـ "approved" تحديداً
+ *   (لا نفي حالة واحدة) حتى تبقى البوابة مغلقة افتراضياً لأي حالة تُضاف مستقبلاً.
  */
 export function canIssueStudentToken(params: {
   sessionUrl: string | null | undefined
@@ -102,18 +124,25 @@ export const ALLOW_REREQUEST_AFTER_REJECT = true
  * - pending   → لا شيء (idempotent — لا سجل جديد)
  * - approved  → لا شيء (موافق عليه بالفعل)
  * - rejected  → إعادة تعيين إلى pending (إن كانت السياسة تسمح)
+ * - kicked    → لا شيء إطلاقاً (LIVE-9C — الطرد لا يُلغى بطلب من الطالب)
  */
 export function resolveRequestOutcome(
   current: AdmissionState
 ): "create" | "unchanged" | "reset-to-pending" {
   if (current === "none") return "create"
+  // LIVE-9C — الطرد حالة نهائية من جهة الطالب: لا reset ولا requestedAt جديد.
+  // لا يرفعها إلا approve صريح من المعلم/الأدمن.
+  if (current === "kicked") return "unchanged"
   if (current === "rejected") {
     return ALLOW_REREQUEST_AFTER_REJECT ? "reset-to-pending" : "unchanged"
   }
   return "unchanged"
 }
 
-/** هل تبقى الواجهة تستعلم عن حالة الدخول؟ فقط أثناء pending. */
+/**
+ * هل تبقى الواجهة تستعلم عن حالة الدخول؟ فقط أثناء pending.
+ * approved / rejected / kicked / none حالات ساكنة — لا استعلام.
+ */
 export function shouldPollAdmission(state: AdmissionState): boolean {
   return state === "pending"
 }

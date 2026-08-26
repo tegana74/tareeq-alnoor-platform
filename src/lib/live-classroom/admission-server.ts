@@ -7,11 +7,14 @@ import { prisma } from "@/lib/prisma"
 import { canAccessCourse } from "@/lib/subscriptions"
 import { getCurrentUser, type CurrentUser } from "@/lib/auth"
 import {
+  canIssueStudentToken,
   canManageAdmission,
+  isAdmissionManagedSession,
   toAdmissionState,
   type AdmissionDecision,
   type AdmissionState,
 } from "./admission"
+import { ROSTER_STATUSES, type AdmissionRosterRow } from "./participants"
 
 /** رفض موحّد الشكل حتى تتطابق رسائل الـ routes. */
 export type AccessDenial = { ok: false; status: number; error: string }
@@ -77,6 +80,51 @@ export async function readAdmissionState(
     select: { status: true },
   })
   return toAdmissionState(record)
+}
+
+/**
+ * LIVE-9C — بوابة الدخول لمسارَي attend و heartbeat.
+ *
+ * قبل 9C كان مسار التوكن هو الحاجز الوحيد، فكان الطالب المطرود (أو غير الموافق
+ * عليه) قادراً على تسجيل حضوره بنداء HTTP مباشر بلا أي اتصال بالغرفة. البوابة
+ * هنا تُغلق ذلك بنفس قاعدة التوكن حرفياً — بلا تخفيف وبلا تشديد.
+ *
+ * لا يُمسّ أي سلوك قائم:
+ *   - المعلم المالك/الأدمن يمرّ كما هو (لا سجل دخول له إطلاقاً).
+ *   - الجلسات الخارجية (YouTube/Zoom/Meet) لا تدخل هذه البوابة أصلاً.
+ *   - الحضور المسجَّل سابقاً لا يُحذف ولا يُعدَّل: الطرد يمنع نبضة جديدة فقط.
+ *
+ * fail-closed: تعذّر قراءة الحالة ⇒ لا تسجيل حضور. الأخطاء لا تُرمى إلى الخارج
+ * لأن هذين المسارين بلا try/catch، ولا تُعاد أي تفاصيل داخلية إلى العميل.
+ */
+export async function checkAttendanceAdmission(
+  user: CurrentUser,
+  session: { id: string; teacherId: string; url: string | null }
+): Promise<AccessResult> {
+  if (!isAdmissionManagedSession(session.url)) return { ok: true }
+  if (canManageAdmission(user, session)) return { ok: true }
+
+  let admission: AdmissionState
+  try {
+    admission = await readAdmissionState(session.id, user.id)
+  } catch (error) {
+    if (isAdmissionTableMissing(error)) {
+      console.error("[LIVE_ATTENDANCE] live_session_admissions table missing")
+      return { ok: false, ...ADMISSION_UNAVAILABLE }
+    }
+    console.error("[LIVE_ATTENDANCE] admission read failed")
+    return {
+      ok: false,
+      status: 503,
+      error: "تعذّر التحقق من حالة دخولك. أعد المحاولة.",
+    }
+  }
+
+  if (!canIssueStudentToken({ sessionUrl: session.url, admission })) {
+    return { ok: false, status: 403, error: "غير مصرح لك بحضور هذه الجلسة" }
+  }
+
+  return { ok: true }
 }
 
 export type DecisionOutcome =
@@ -164,5 +212,135 @@ export async function readJsonBody(request: Request): Promise<Record<string, unk
       : {}
   } catch {
     return {}
+  }
+}
+
+// ─── LIVE-9C — قراءات لوحة المشاركين ────────────────────────────────────────
+
+/** اسم المستخدم للعرض — من جدول User حصراً، لا من LiveKit. */
+function formatUserName(user: {
+  firstName: string
+  middleName: string | null
+  lastName: string
+}): string {
+  return `${user.firstName} ${user.middleName ?? ""} ${user.lastName}`
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+const ROSTER_USER_SELECT = {
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  year: { select: { name: true } },
+  department: { select: { name: true } },
+} as const
+
+/**
+ * صفوف الدخول التي تظهر في لوحة المشاركين (approved + kicked).
+ *
+ * قراءة واحدة تخدم القائمة كلها؛ الحضور الفعلي يأتي من LiveKit ولا يُخزَّن.
+ * pending تملكها لوحة طلبات الدخول (LIVE-9B) فلا تُقرأ هنا.
+ */
+export async function readRosterAdmissions(
+  sessionId: string
+): Promise<AdmissionRosterRow[]> {
+  const rows = await prisma.liveSessionAdmission.findMany({
+    where: { sessionId, status: { in: [...ROSTER_STATUSES] } },
+    orderBy: { requestedAt: "asc" },
+    select: {
+      userId: true,
+      status: true,
+      decidedAt: true,
+      user: { select: ROSTER_USER_SELECT },
+    },
+  })
+
+  return rows.map((row) => ({
+    userId: row.userId,
+    status: row.status,
+    name: formatUserName(row.user),
+    yearName: row.user.year?.name ?? null,
+    departmentName: row.user.department?.name ?? null,
+    decidedAt: row.decidedAt,
+  }))
+}
+
+export type KickTarget = {
+  /** هل يوجد سجل دخول للمستهدَف في هذه الجلسة تحديداً؟ */
+  exists: boolean
+  status: AdmissionState
+  /** الدور والملكية من جدول User — null إن لم يوجد المستخدم إطلاقاً. */
+  user: { role: string; teacherId: string | null } | null
+}
+
+/**
+ * السجل المستهدَف بالطرد + دور صاحبه.
+ *
+ * الدور و teacherId يُقرآن من قاعدة البيانات لا من العميل، ليُمنع طرد معلم
+ * الجلسة أو الأدمن. سجل الدخول مقيَّد بـ sessionId فلا يمكن استهداف جلسة أخرى.
+ *
+ * المستخدم يُقرأ من جدول User مستقلاً عن سجل الدخول: المعلم/الأدمن لا سجل دخول
+ * له إطلاقاً (مسار request يرفضه)، فلو استنتجنا الدور من السجل وحده لعاد الرد
+ * «لا يوجد طلب دخول» بدل «لا يمكن إخراج معلم الجلسة».
+ */
+export async function readKickTarget(
+  sessionId: string,
+  targetUserId: string
+): Promise<KickTarget> {
+  const [row, targetUser] = await Promise.all([
+    prisma.liveSessionAdmission.findUnique({
+      where: { sessionId_userId: { sessionId, userId: targetUserId } },
+      select: { status: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true, teacherId: true },
+    }),
+  ])
+
+  return {
+    exists: row !== null,
+    status: toAdmissionState(row),
+    user: targetUser,
+  }
+}
+
+export type KickOutcome = {
+  status: AdmissionState
+  userId: string
+  decidedAt: Date | null
+}
+
+/**
+ * تثبيت حالة "kicked" في قاعدة البيانات.
+ *
+ * تُستدعى قبل إزالة المشارك من LiveKit عن قصد: الحظر هو الحاجز الدائم (يمنع
+ * أي توكن جديد)، والإزالة أثر فوري. لو انعكس الترتيب لأمكن للطالب أن يُعيد
+ * الاتصال في الفجوة بين الإزالة والكتابة.
+ */
+export async function markKicked(params: {
+  sessionId: string
+  targetUserId: string
+  actorUserId: string
+}): Promise<KickOutcome> {
+  const updated = await prisma.liveSessionAdmission.update({
+    where: {
+      sessionId_userId: {
+        sessionId: params.sessionId,
+        userId: params.targetUserId,
+      },
+    },
+    data: {
+      status: "kicked",
+      decidedAt: new Date(),
+      decidedBy: params.actorUserId,
+    },
+  })
+
+  return {
+    status: toAdmissionState(updated),
+    userId: params.targetUserId,
+    decidedAt: updated.decidedAt,
   }
 }

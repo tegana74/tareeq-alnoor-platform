@@ -8,6 +8,10 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  liveSessionAdmission: {
+    // LIVE-9C — بوابة الدخول في attend/heartbeat تقرأ حالة الطالب
+    findUnique: vi.fn(),
+  },
   liveSessionAttendance: {
     upsert: vi.fn(),
   },
@@ -38,6 +42,7 @@ function mockSession(overrides: Record<string, unknown> = {}) {
     teacherId: "t1",
     courseId: "c1",
     status: "live",
+    url: null,
     startAt: new Date(Date.now() - 5 * 60 * 1000),
     durationMinutes: 60,
     price: 0,
@@ -51,6 +56,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   setUser({ id: "s1", role: "STUDENT", teacherId: null })
   mockSession()
+  // LIVE-9C — الطالب في هذه الاختبارات موافق عليه؛ البوابة تقرأ حالته من السجل
+  prismaMock.liveSessionAdmission.findUnique.mockResolvedValue({
+    status: "approved",
+  } as never)
   vi.mocked(canAccessCourse).mockResolvedValue(true)
 })
 

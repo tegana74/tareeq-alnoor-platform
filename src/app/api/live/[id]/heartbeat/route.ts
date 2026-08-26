@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
+import { checkAttendanceAdmission } from "@/lib/live-classroom/admission-server"
 
 /**
  * LIVE-8D — Heartbeat
@@ -10,6 +11,7 @@ import { canAccessCourse } from "@/lib/subscriptions"
  * نبضة وجود خفيفة (كل 45 ثانية من المشاهد المتصل فعلياً بـ LiveKit).
  *
  * - نفس حراسة attend بالكامل (auth / course access / booking / live / time window)
+ * - LIVE-9C: نفس بوابة الدخول أيضاً — الطالب المطرود لا تُقبل نبضاته
  * - Idempotent: يؤكد سجل الحضور عبر upsert (update: {}) — لا يسجلات مكررة أبداً
  * - لا يكتب أي حالة على LiveSession ولا يغيّر attendance semantics القديمة
  */
@@ -50,7 +52,13 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
   const now = new Date()
   if (now < start || now > end) return NextResponse.json({ error: "خارج وقت البث الزمني" }, { status: 400 })
 
-  // 5. Idempotent — يؤكد الحضور دون إنشاء تكرار (@@unique([userId, sessionId]))
+  // 5. LIVE-9C — بوابة الدخول: نبضة من طالب مطرود لا تُقبل
+  const admission = await checkAttendanceAdmission(user, session)
+  if (!admission.ok) {
+    return NextResponse.json({ error: admission.error }, { status: admission.status })
+  }
+
+  // 6. Idempotent — يؤكد الحضور دون إنشاء تكرار (@@unique([userId, sessionId]))
   await prisma.liveSessionAttendance.upsert({
     where: { userId_sessionId: { userId: user.id, sessionId: id } },
     create: { userId: user.id, sessionId: id },

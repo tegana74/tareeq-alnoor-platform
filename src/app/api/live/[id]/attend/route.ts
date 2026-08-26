@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
+import { checkAttendanceAdmission } from "@/lib/live-classroom/admission-server"
 
 export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
@@ -39,6 +40,12 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
   const end = new Date(start.getTime() + session.durationMinutes * 60000)
   const now = new Date()
   if (now < start || now > end) return NextResponse.json({ error: "خارج وقت البث الزمني" }, { status: 400 })
+
+  // 5. LIVE-9C — بوابة الدخول: الطالب المطرود أو غير الموافق عليه لا يسجل حضوراً
+  const admission = await checkAttendanceAdmission(user, session)
+  if (!admission.ok) {
+    return NextResponse.json({ error: admission.error }, { status: admission.status })
+  }
 
   await prisma.liveSessionAttendance.upsert({
     where: { userId_sessionId: { userId: user.id, sessionId: id } },

@@ -24,8 +24,10 @@ import { LiveCountdown } from "./live-countdown"
 import { StudentLiveViewer } from "./student-live-viewer"
 import { AdmissionGate } from "./admission-gate"
 import { AdmissionPanel } from "./admission-panel"
+import { ParticipantsPanel } from "./participants-panel"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
 import type { AdmissionState } from "@/lib/live-classroom/admission"
+import { shouldTrackParticipants } from "@/lib/live-classroom/participants"
 import { Room, RoomEvent, VideoPresets, createLocalTracks } from "livekit-client"
 import type { LocalVideoTrack } from "livekit-client"
 import {
@@ -96,6 +98,11 @@ export function LiveRoomClient({
   // LIVE-8D — polish: عدّاد المشاهدين وجودة الاتصال
   const [viewerCount, setViewerCount] = useState(0)
   const [teacherQuality, setTeacherQuality] = useState<string>("unknown")
+  /**
+   * LIVE-9C — عدّاد يتغيّر مع كل حدث اتصال/انفصال، تقرأه لوحة المشاركين لتحدّث
+   * نفسها فوراً. نستخدم مستمعي الغرفة القائمين أصلاً — لا بنية realtime جديدة.
+   */
+  const [participantsRevision, setParticipantsRevision] = useState(0)
   // LIVE-9B — حالة طلب الدخول (يملكها AdmissionGate ويبلّغ الغرفة بها)
   const [admissionState, setAdmissionState] = useState<AdmissionState>(initialAdmission)
 
@@ -243,7 +250,11 @@ export function LiveRoomClient({
       })
 
       // LIVE-8D — polish: عدّاد المشاهدين (المشاركون البعيدون) وجودة اتصال الناشر
-      const updateViewers = () => setViewerCount(r.remoteParticipants.size)
+      // LIVE-9C — نفس الحدثين يُنبّهان لوحة المشاركين (بلا مستمع إضافي)
+      const updateViewers = () => {
+        setViewerCount(r.remoteParticipants.size)
+        setParticipantsRevision((n) => n + 1)
+      }
       r.on(RoomEvent.ParticipantConnected, updateViewers)
       r.on(RoomEvent.ParticipantDisconnected, updateViewers)
       updateViewers()
@@ -619,6 +630,14 @@ export function LiveRoomClient({
       {/* LIVE-9B — طلبات الدخول (المعلم المالك/الأدمن، جلسات LiveKit النشطة فقط) */}
       {isManager && !url && (status === "waiting" || status === "live") && (
         <AdmissionPanel sessionId={sessionId} />
+      )}
+
+      {/* LIVE-9C — المشاركون + الإخراج (نفس شروط لوحة الطلبات، عبر سياسة مشتركة) */}
+      {isManager && shouldTrackParticipants({ sessionUrl: url, status }) && (
+        <ParticipantsPanel
+          sessionId={sessionId}
+          revision={participantsRevision}
+        />
       )}
 
       {/* LiveKit Publisher View (Teacher only) */}

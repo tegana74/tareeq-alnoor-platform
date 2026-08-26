@@ -8,6 +8,10 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  liveSessionAdmission: {
+    // LIVE-9C — بوابة الدخول في attend تقرأ حالة الطالب
+    findUnique: vi.fn(),
+  },
   liveSessionAttendance: {
     upsert: vi.fn(),
   },
@@ -184,11 +188,16 @@ describe("POST /api/live/[id]/attend (Attendance Route)", () => {
       teacherId: "t1",
       courseId: "c1",
       status: "live",
+      url: null, // LIVE-9C — جلسة LiveKit تخضع لبوابة الدخول
       startAt: new Date(Date.now() - 5 * 60 * 1000), // started 5 mins ago
       durationMinutes: 60,
       price: 0,
       isFree: true,
       bookings: [],
+    } as never)
+    // LIVE-9C — الطالب هنا موافق عليه في الدخول
+    prismaMock.liveSessionAdmission.findUnique.mockResolvedValueOnce({
+      status: "approved",
     } as never)
 
     const res = await attendPost(req, { params: Promise.resolve({ id: "live-1" }) })

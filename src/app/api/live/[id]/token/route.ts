@@ -22,6 +22,8 @@ const ADMISSION_DENIAL_MESSAGES: Record<AdmissionState, string> = {
   none: "يجب إرسال طلب دخول والانتظار حتى يوافق المعلم",
   pending: "طلب دخولك قيد انتظار موافقة المعلم",
   rejected: "لم تتم الموافقة على دخولك لهذه الجلسة",
+  // LIVE-9C — kicked: a fresh page load or a stale token must not get a new one.
+  kicked: "تم إخراجك من هذه الجلسة بواسطة المعلم",
   approved: "",
 }
 
