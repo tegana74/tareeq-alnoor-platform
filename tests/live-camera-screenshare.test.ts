@@ -13,6 +13,10 @@ const prismaMock = vi.hoisted(() => ({
   liveSessionAttendance: {
     upsert: vi.fn(),
   },
+  // LIVE-9B: مسار توكن الطالب يقرأ حالة الدخول قبل إصدار التوكن
+  liveSessionAdmission: {
+    findUnique: vi.fn(),
+  },
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
@@ -123,6 +127,12 @@ beforeEach(() => {
   setUser({ id: "teacher-1", role: "TEACHER", teacherId: "t1" })
   mockSession()
   vi.mocked(canAccessCourse).mockResolvedValue(true)
+
+  // LIVE-9B: اختبار 13 يتحقق أن الطالب لا يصل إلى صلاحيات النشر —
+  // فالمقصود شكل التوكن لا بوابة الدخول (المغطاة في live-admission.test.ts)
+  prismaMock.liveSessionAdmission.findUnique.mockResolvedValue({
+    status: "approved",
+  } as never)
 })
 
 // ============================= Camera State Machine (publisher-media) =============================

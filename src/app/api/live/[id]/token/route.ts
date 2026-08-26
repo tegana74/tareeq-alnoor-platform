@@ -3,9 +3,27 @@ import { AccessToken } from "livekit-server-sdk"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
+import {
+  canIssueStudentToken,
+  isAdmissionManagedSession,
+  type AdmissionState,
+} from "@/lib/live-classroom/admission"
+import {
+  ADMISSION_UNAVAILABLE,
+  isAdmissionTableMissing,
+  readAdmissionState,
+} from "@/lib/live-classroom/admission-server"
 
 // Force dynamic — tokens are per-user per-request
 export const dynamic = "force-dynamic"
+
+/** Arabic denial message per admission state — the student's own state, no data leak. */
+const ADMISSION_DENIAL_MESSAGES: Record<AdmissionState, string> = {
+  none: "يجب إرسال طلب دخول والانتظار حتى يوافق المعلم",
+  pending: "طلب دخولك قيد انتظار موافقة المعلم",
+  rejected: "لم تتم الموافقة على دخولك لهذه الجلسة",
+  approved: "",
+}
 
 /**
  * GET /api/live/[id]/token
@@ -13,8 +31,11 @@ export const dynamic = "force-dynamic"
  * Generate a LiveKit access token for the authenticated user.
  *
  * - Teacher owner / Admin → Publisher token (canPublish + canSubscribe)
- * - Student with valid access → Subscriber token (canSubscribe only)
+ * - Student with valid access **and approved admission** → Subscriber token (canSubscribe only)
  * - Guest / Unauthorized → 401 / 403
+ *
+ * LIVE-9B: for LiveKit sessions (no external url), a student must be approved by
+ * the teacher first. Opening the page is never enough to obtain a token.
  */
 export async function GET(
   _request: NextRequest,
@@ -95,6 +116,34 @@ export async function GET(
           { error: "يجب حجز الحصة أولاً" },
           { status: 403 }
         )
+      }
+
+      // 3c. LIVE-9B — Admission gate (LiveKit sessions only)
+      // External-url sessions (YouTube/Zoom/Meet) keep their previous behavior.
+      if (isAdmissionManagedSession(session.url)) {
+        let admission: AdmissionState
+        try {
+          admission = await readAdmissionState(session.id, user.id)
+        } catch (error) {
+          // Fail closed: if admission state cannot be read, no token is issued.
+          if (isAdmissionTableMissing(error)) {
+            console.error(
+              "[LIVEKIT_TOKEN] live_session_admissions table missing — denying student token"
+            )
+            return NextResponse.json(
+              { error: ADMISSION_UNAVAILABLE.error },
+              { status: ADMISSION_UNAVAILABLE.status }
+            )
+          }
+          throw error
+        }
+
+        if (!canIssueStudentToken({ sessionUrl: session.url, admission })) {
+          return NextResponse.json(
+            { error: ADMISSION_DENIAL_MESSAGES[admission], admission },
+            { status: 403 }
+          )
+        }
       }
 
       canPublish = false

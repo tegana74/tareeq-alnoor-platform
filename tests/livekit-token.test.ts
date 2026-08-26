@@ -7,6 +7,10 @@ const prismaMock = vi.hoisted(() => ({
   liveSession: {
     findUnique: vi.fn(),
   },
+  // LIVE-9B: مسار توكن الطالب يقرأ حالة الدخول قبل إصدار التوكن
+  liveSessionAdmission: {
+    findUnique: vi.fn(),
+  },
   subscription: {
     findUnique: vi.fn(),
   },
@@ -94,6 +98,13 @@ beforeEach(() => {
 
   // Default: course access granted
   vi.mocked(canAccessCourse).mockResolvedValue(true)
+
+  // LIVE-9B: هذه المجموعة تختبر صلاحيات الكورس والحجز والـ grants — لا بوابة الدخول.
+  // الافتراضي «موافَق عليه» يحافظ على نفس ما كانت تختبره قبل 9B.
+  // بوابة الدخول نفسها مغطاة بالكامل في tests/live-admission.test.ts
+  prismaMock.liveSessionAdmission.findUnique.mockResolvedValue({
+    status: "approved",
+  } as never)
 
   // Reset JWT mock
   livekitMock.mockToJwt.mockResolvedValue("mock-jwt-token")

@@ -22,7 +22,10 @@ import { updateLiveSessionStatusAction } from "@/app/actions/teacher-live"
 import { BookingPanel } from "./booking-form"
 import { LiveCountdown } from "./live-countdown"
 import { StudentLiveViewer } from "./student-live-viewer"
+import { AdmissionGate } from "./admission-gate"
+import { AdmissionPanel } from "./admission-panel"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
+import type { AdmissionState } from "@/lib/live-classroom/admission"
 import { Room, RoomEvent, VideoPresets, createLocalTracks } from "livekit-client"
 import type { LocalVideoTrack } from "livekit-client"
 import {
@@ -44,6 +47,8 @@ interface LiveRoomClientProps {
   courseName: string | null
   startAt: string
   durationMinutes: number
+  /** LIVE-9B — حالة طلب دخول الطالب مقروءة من السيرفر (المعلم/الأدمن: "none") */
+  initialAdmission: AdmissionState
 }
 
 export function LiveRoomClient({
@@ -60,6 +65,7 @@ export function LiveRoomClient({
   courseName,
   startAt,
   durationMinutes,
+  initialAdmission,
 }: LiveRoomClientProps) {
   const router = useRouter()
   const [status, setStatus] = useState<LiveSessionStatus>(initialStatus)
@@ -90,6 +96,8 @@ export function LiveRoomClient({
   // LIVE-8D — polish: عدّاد المشاهدين وجودة الاتصال
   const [viewerCount, setViewerCount] = useState(0)
   const [teacherQuality, setTeacherQuality] = useState<string>("unknown")
+  // LIVE-9B — حالة طلب الدخول (يملكها AdmissionGate ويبلّغ الغرفة بها)
+  const [admissionState, setAdmissionState] = useState<AdmissionState>(initialAdmission)
 
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -135,6 +143,9 @@ export function LiveRoomClient({
   // 2. تسجيل الحضور تلقائياً عندما تكون الحالة "live"
   useEffect(() => {
     if (status !== "live" || attended || isManager) return
+    // LIVE-9B — في جلسات LiveKit لا يُسجَّل حضور قبل موافقة المعلم.
+    // الجلسات الخارجية (YouTube/Zoom/Meet) تحتفظ بسلوكها السابق.
+    if (!url && admissionState !== "approved") return
 
     let active = true
     async function markAttendance() {
@@ -152,7 +163,7 @@ export function LiveRoomClient({
     return () => {
       active = false
     }
-  }, [status, attended, sessionId, isManager])
+  }, [status, attended, sessionId, isManager, url, admissionState])
 
   // 3. دالة تغيير حالة الجلسة (للمعلم والأدمن)
   const handleStatusTransition = async (target: LiveSessionStatus) => {
@@ -605,6 +616,11 @@ export function LiveRoomClient({
         </div>
       )}
 
+      {/* LIVE-9B — طلبات الدخول (المعلم المالك/الأدمن، جلسات LiveKit النشطة فقط) */}
+      {isManager && !url && (status === "waiting" || status === "live") && (
+        <AdmissionPanel sessionId={sessionId} />
+      )}
+
       {/* LiveKit Publisher View (Teacher only) */}
       {isManager && !url && room && (
         <div className="mb-6 rounded-2xl border-2 border-slate-200 bg-black p-4 shadow-sm relative overflow-hidden">
@@ -963,9 +979,15 @@ export function LiveRoomClient({
             </div>
           )}
 
-          {/* بدون رابط خارجي → LiveKit: المعلم يبث من لوحته والطالب يشاهد كمشاهد فقط */}
+          {/* بدون رابط خارجي → LiveKit: لا اتصال ولا توكن قبل موافقة المعلم (LIVE-9B) */}
           {!url && !isManager && (
-            <StudentLiveViewer sessionId={sessionId} status={status} />
+            <AdmissionGate
+              sessionId={sessionId}
+              initialState={initialAdmission}
+              onStateChange={setAdmissionState}
+            >
+              <StudentLiveViewer sessionId={sessionId} status={status} />
+            </AdmissionGate>
           )}
 
           {/* بدون روابط — عرض المعلم (يبقى كما هو) */}

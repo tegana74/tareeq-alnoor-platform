@@ -58,6 +58,7 @@ model User {
   studyPlanFinishes      StudyPlanSubjectFinish[]
   sessionBookings        SessionBooking[]
   liveSessionAttendances LiveSessionAttendance[]
+  liveSessionAdmissions  LiveSessionAdmission[]
   pointTransactions      PointsTransaction[]
   codeActivations        InsertCodeUsage[]
   exemptions             ExemptionRequest[]
@@ -665,6 +666,7 @@ model LiveSession {
   classroom       Classroom?              @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   bookings        SessionBooking[]
   attendances     LiveSessionAttendance[]
+  admissions      LiveSessionAdmission[]
 
   @@index([classroomId])
   @@map("live_sessions")
@@ -716,6 +718,26 @@ model LiveSessionAttendance {
 
   @@unique([userId, sessionId])
   @@map("live_session_attendances")
+}
+
+// LIVE-9B — طلبات دخول الطلاب (Admission / Waiting Room)
+// حالة الدخول لكل (جلسة، طالب): pending | approved | rejected
+// status نص وليس enum — متوافق مع LiveSession.status وSessionBooking.status،
+// ويسمح لـ LIVE-9C بإضافة "kicked" لاحقاً بدون migration جديدة.
+model LiveSessionAdmission {
+  id          String      @id @default(cuid())
+  sessionId   String
+  userId      String
+  status      String      @default("pending") // pending | approved | rejected
+  requestedAt DateTime    @default(now())
+  decidedAt   DateTime?
+  decidedBy   String? // User.id للمعلم/الأدمن الذي اتخذ القرار
+  session     LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([sessionId, status])
+  @@map("live_session_admissions")
 }
 
 // ============================= خطة المذاكرة =============================

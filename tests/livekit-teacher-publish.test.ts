@@ -8,6 +8,10 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  // LIVE-9B: مسار توكن الطالب يقرأ حالة الدخول قبل إصدار التوكن
+  liveSessionAdmission: {
+    findUnique: vi.fn(),
+  },
   subscription: {
     findUnique: vi.fn(),
   },
@@ -142,6 +146,12 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_LIVEKIT_URL = "wss://test.livekit.cloud"
 
   livekitServerMock.FakeAccessToken.resetCalls()
+
+  // LIVE-9B: اختبار «الطالب لا يحصل على grants نشر» يفترض طالبًا مقبولًا،
+  // فالمقصود هو شكل الـ grants لا بوابة الدخول (المغطاة في live-admission.test.ts)
+  prismaMock.liveSessionAdmission.findUnique.mockResolvedValue({
+    status: "approved",
+  } as never)
 })
 
 // ============================= Tests =============================

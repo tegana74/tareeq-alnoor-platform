@@ -8,6 +8,10 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  // LIVE-9B: مسار توكن الطالب يقرأ حالة الدخول قبل إصدار التوكن
+  liveSessionAdmission: {
+    findUnique: vi.fn(),
+  },
   subscription: {
     findUnique: vi.fn(),
   },
@@ -155,6 +159,13 @@ beforeEach(() => {
   // افتراضي: endpoint التوكن يعيد توكن مشاهد عبر GET الحقيقي (mocked)
   setUser({ id: "s1", role: "STUDENT", teacherId: null })
   mockSession({ isFree: true })
+
+  // LIVE-9B: هذه المجموعة تختبر grants المشاهد والاتصال — لا بوابة الدخول.
+  // الافتراضي «موافَق عليه» يحافظ على نفس ما كانت تختبره قبل 9B.
+  // بوابة الدخول نفسها مغطاة بالكامل في tests/live-admission.test.ts
+  prismaMock.liveSessionAdmission.findUnique.mockResolvedValue({
+    status: "approved",
+  } as never)
 
   tokenFetchImpl = async (input) => {
     const url = String(input)

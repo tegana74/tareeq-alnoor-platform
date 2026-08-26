@@ -7,6 +7,11 @@ import { getCurrentUser } from "@/lib/auth"
 import { canAccessCourse } from "@/lib/subscriptions"
 import { LiveRoomClient } from "./live-room-client"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
+import {
+  isAdmissionManagedSession,
+  type AdmissionState,
+} from "@/lib/live-classroom/admission"
+import { readAdmissionState } from "@/lib/live-classroom/admission-server"
 
 interface LivePageProps {
   params: Promise<{ id: string }>
@@ -48,6 +53,17 @@ export default async function LiveSessionPage({ params }: LivePageProps) {
 
   const booking = session.bookings[0]
 
+  // 3. LIVE-9B — حالة طلب الدخول تُقرأ من السيرفر (لا افتراضات على العميل).
+  // fail-closed: أي تعذر في القراءة يعني "لا دخول" مع بقاء الصفحة تعمل.
+  let initialAdmission: AdmissionState = "none"
+  if (!isManager && isAdmissionManagedSession(session.url)) {
+    try {
+      initialAdmission = await readAdmissionState(session.id, user.id)
+    } catch (error) {
+      console.error("[LIVE_PAGE_ADMISSION_READ]", error)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
       <nav className="mb-6 flex items-center gap-2 text-sm text-slate-500">
@@ -72,6 +88,7 @@ export default async function LiveSessionPage({ params }: LivePageProps) {
         courseName={session.course?.name ?? null}
         startAt={session.startAt.toISOString()}
         durationMinutes={session.durationMinutes}
+        initialAdmission={initialAdmission}
       />
     </div>
   )
