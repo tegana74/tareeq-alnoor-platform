@@ -1,14 +1,17 @@
 # LIVE-9C — Participant Management + Kick — Final Report
 
 **التاريخ:** 2026-08-26
-**Production commit at phase start:** `7cf7cdb`
+**Commit:** `6644482 feat: add live participant management and kick` — على `origin/main` ومنشور في Vercel Production
 
 | التصنيف | الحالة |
 |---|---|
 | LIVE-9C implementation | **COMPLETE** |
 | Local automated validation | **PASS** |
 | Frontend code review | **PASS — 0 urgent issues** |
-| Real LiveKit Browser E2E | **BLOCKED — requires a real non-production LiveKit test environment** |
+| Commit / push / Vercel deployment | **VERIFIED** (`6644482` · state: success) |
+| Production smoke test | **4 PASS / 1 NOT TESTABLE** |
+| Real LiveKit Browser E2E | **BLOCKED / NOT TESTED** |
+| Final status | **PARTIAL** (انظر §14) |
 
 ---
 
@@ -158,36 +161,66 @@ git diff --check      → clean (تحذيرات LF/CRLF المعروفة على 
 - المخطط الحالي محدث: `npx prisma migrate status` → "Database schema is up to date!" (6 migrations؛ الأخير `20260825_add_live_session_admissions`).
 - **لم تُنفَّذ أي أمر كتابة Prisma في هذا الطور** (`db push`/`migrate deploy`/`migrate reset` غير مستخدمة)، ولا seed، ولا أي كتابة على Production Neon.
 
-## 12. Git Status
+## 12. Git & Deployment State (final)
 
+### Commit
 ```
-$ git status --short
- M CLAUDE.md*
- M src/app/(site)/live/[id]/admission-gate.tsx
- M src/app/(site)/live/[id]/live-room-client.tsx
- M src/app/(site)/live/[id]/student-live-viewer.tsx
- M src/app/api/live/[id]/attend/route.ts
- M src/app/api/live/[id]/heartbeat/route.ts
- M src/app/api/live/[id]/token/route.ts
- M src/lib/live-classroom/admission-server.ts
- M src/lib/live-classroom/admission.ts
- M tests/live-room-shell.test.ts
- M tests/livekit-heartbeat.test.ts
-?? LIVE_9B_ADMISSION_WAITING_ROOM_REPORT.md*
-?? LIVE_9C_PARTICIPANT_MANAGEMENT_REPORT.md   ← تقرير التنفيذ المؤقت (سبق هذا التقرير)
-?? LIVE_9C_PARTICIPANT_MANAGEMENT_KICK_REPORT.md   ← هذا التقرير
-?? src/app/(site)/live/[id]/participants-panel.tsx
-?? src/app/api/live/[id]/participants/
-?? src/lib/live-classroom/livekit-admin.ts
-?? src/lib/live-classroom/participants.ts
-?? tests/live-room-participants.test.ts
-
-(*) CLAUDE.md وتقرير 9B تعديلات سابقة موجودة قبل LIVE-9C
-Branch: main — لا commit ولا push ولا deploy (بانتظار المراجعة)
+6644482 feat: add live participant management and kick
+17 files changed, 2548 insertions(+), 17 deletions(-)
 ```
+نُفِّذ بعد مراجعة الـ diff النهائية وتجهيز الملفات الـ 17 المقصودة فقط.
 
-## 13. Final Acceptance Status
+**ملفات استُبعدت عمداً من الـ commit وتبقى خارجه:**
+- `CLAUDE.md` — تعديل Skills Policy سابق قبل LIVE-9C
+- `LIVE_9B_ADMISSION_WAITING_ROOM_REPORT.md` — تقرير الطور السابق (له مسار commit خاص)
+- `LIVE_9C_PARTICIPANT_MANAGEMENT_REPORT.md` — تقرير مؤقت استُبدل بهذا التقرير النهائي
 
-**IMPLEMENTATION COMPLETE — LOCAL VALIDATION PASS — REAL LIVEKIT BROWSER E2E BLOCKED BY TEST ENVIRONMENT**
+### Push
+```
+To https://github.com/tegana74/tareeq-alnoor-platform.git
+   7cf7cdb..6644482  main -> main
+```
+مؤكد: local HEAD = origin/main = `664448294265b1d69cc92249501be73f30e5c290`.
 
-LIVE-9C ليس Browser-E2E COMPLETE. السيناريوهات الثلاثة المعتمدة على غرفة LiveKit حقيقية (§8 BLOCKED) تبقى دليلاً مطلوباً قبل إعلان COMPLETE الكامل، وتتوفّر بيئة اختبار غير إنتاجية (Neon branch + LiveKit test credentials).
+## 13. Vercel Production Deployment
+
+نشر Vercel التلقائي بعد الـ push — لا deploy يدوي ولا تغيير إعدادات.
+
+| العنصر | القيمة | الدليل |
+|---|---|---|
+| SHA | `664448294265b1d69cc92249501be73f30e5c290` | GitHub Deployments API (أحدث deployment، لا يوجد أحدث منه) |
+| Environment | Production (`production_environment`)، بواسطة `vercel[bot]`، 2026-08-26T09:34:33Z | نفس المصدر |
+| Deployment ID | GitHub deployment `6101031586`؛ معرف نشر Vercel `3pvwj3ces` | `target_url` في حالة الـ deployment |
+| State | **success** — "Deployment has completed" | `/deployments/6101031586/statuses` |
+| Production URL | **https://www.tareeq-alnoor.online** — HTTP 200، `Server: Vercel` | HTTP HEAD للقراءة فقط |
+
+### Production Smoke Test (2026-08-26 — طلبات HTTP مجهولة للقراءة فقط)
+
+| # | الفحص | النتيجة | HTTP | الاستجابة |
+|---|---|---|---|---|
+| 1 | `GET /api/live/nonexistent-e2e-probe-id/participants` (ضيف) | PASS | 401 | `{"error":"يجب تسجيل الدخول"}` — حارس LIVE-9C الأول |
+| 2 | `GET /api/live/nonexistent-e2e-probe-id/token` (ضيف) | PASS | 401 | `{"error":"يجب تسجيل الدخول"}` — سلوك pre-existing لمسار التوكن |
+| 3 | `POST /api/live/…/participants/kick` (ضيف) | PASS | 403 | نص `Forbidden` — حارس POST المنصّي (CSRF/Origin، pre-existing) يعترض قبل منطق المسار؛ الضيف محجوب بطبقتين |
+| 4 | الجلسات الخارجية (YouTube) على production | **NOT TESTABLE** | — | يتطلب جلسة production مصادَقة حقيقية؛ لم تُستخدم أي حسابات. المنطق مغطى بـ 60 اختبار وحدة وSHA `6644482` مؤكد على production |
+| 5 | `https://www.tareeq-alnoor.online` | PASS | 200 | الصفحة تحمّل (~2.4s) |
+
+لا أسرار في أي استجابة؛ جميعها أشكال أخطاء عامة. لم يُنفَّذ أي Kick مصادَق ضد طالب حقيقي.
+
+### Browser E2E Limitation
+
+**REAL LIVEKIT BROWSER E2E = BLOCKED / NOT TESTED** — لا توجد غرفة LiveKit اختبارية غير إنتاجية ولا حسابا معلم/طالب متاحان لجلسة متصفح حقيقية. سيناريوهات join/presence/kick الفعلي/reconnect عبر المتصفح (§8 BLOCKED: 1b، 2b، 3b) **لم تُختبر ولم تُعلن PASS** — التغطية الوحيدة لها تبقى مستوى الوحدة/التكامل (§5–§6).
+
+### Post-deploy regression note
+أعيد تشغيل الحزمة المحلية كاملة على commit `6644482` بعد الرفع: tsc 0 errors، ESLint 0 errors/29 warnings، Vitest **443/443** (فشل عابر واحد في `live-room-polish.test.ts` في الجولة الأولى اختفى في العزل وإعادة التشغيل الكاملة — flake تحميل ملفات، والملف غير مماس بهذا الطور)، `git diff HEAD^ HEAD --check` نظيف.
+
+## 14. Final Acceptance Status
+
+PARTIAL
+
+- Implementation: **COMPLETE**
+- Local validation: **PASS**
+- Commit / push / deployment: **VERIFIED** (`6644482` · Vercel Production state: success)
+- Production smoke test: **completed — 4 PASS / 1 NOT TESTABLE**
+- Real LiveKit Browser E2E: **BLOCKED / NOT TESTED**
+
+LIVE-9C ليس Browser-E2E COMPLETE. السيناريوهات المعتمدة على غرفة LiveKit حقيقية ومشارك حقيقي متصل (join/presence/إزالة فعلية/reconnect) تبقى دليلاً مطلوباً قبل إعلان COMPLETE الكامل، وتتطلب بيئة اختبار غير إنتاجية (Neon branch + بيانات LiveKit Cloud اختبارية).
