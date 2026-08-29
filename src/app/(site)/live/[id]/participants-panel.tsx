@@ -233,8 +233,11 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
    * منح/سحب صلاحية الميكروفون لطالب واحد (LIVE-9E).
    *
    * لا نُثبِّت الحالة محلياً كما في القبول: صلاحية الميكروفون تعيش في LiveKit
-   * وحده، والاستعلام الدوري يقرأها من هناك. نعرض ما أعاده السيرفر فقط —
-   * ولو لم يُطبَّق المنح (طالب غير متصل) فـ micGranted يعود false مع تحذير.
+   * وحده، والاستعلام الدوري يقرأها من هناك. نعرض ما أعاده السيرفر فقط.
+   *
+   * LIVE-9F: micGranted قد تعود null = «الحالة غير معروفة» (فشل RPC). في هذه
+   * الحالة لا نكتب حالة مخترعة على الصف — نُبقي ما هو معروض ونُعيد الاستعلام
+   * فوراً بدل انتظار دورة الـ 12 ثانية، فيُظهر LiveKit ما جرى فعلاً.
    */
   const micAction = useCallback(
     async (userId: string, action: "grant" | "revoke") => {
@@ -254,24 +257,34 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
               ? data.error
               : "تعذر تحديث صلاحية الميكروفون."
           )
+          // خطأ خادم قد يقع بعد تطبيق الصلاحية فعلاً — لا نُخمّن، نقرأ من جديد
+          if (res.status >= 500) void load()
           return
         }
-        const granted = data.micGranted === true
-        setRows((current) =>
-          current.map((row) =>
-            row.userId === userId
-              ? { ...row, micGranted: granted, micActive: granted ? row.micActive : false }
-              : row
+        const granted = data.micGranted
+        if (typeof granted === "boolean") {
+          setRows((current) =>
+            current.map((row) =>
+              row.userId === userId
+                ? {
+                    ...row,
+                    micGranted: granted,
+                    micActive: granted ? row.micActive : false,
+                  }
+                : row
+            )
           )
-        )
+        }
         if (typeof data.warning === "string") setWarningMsg(data.warning)
+        // لم تُطبَّق العملية أو الحالة غير معروفة → إعادة قراءة فورية
+        if (data.applied === false || typeof granted !== "boolean") void load()
       } catch {
         setErrorMsg("تعذر الاتصال بالخادم. حاول مرة أخرى.")
       } finally {
         setBusyUserId(undefined)
       }
     },
-    [sessionId]
+    [sessionId, load]
   )
 
   /** سحب الميكروفون من كل طالب متصل يملكه — لا يشمل المعلم ولا الأدمن */
@@ -291,7 +304,10 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
         return
       }
       setRows((current) =>
-        current.map((row) => ({ ...row, micGranted: false, micActive: false }))
+        current.map((row) =>
+          // الهويات غير المعروفة (المعلم/المشرف في الغرفة) ليست أهدافاً للكتم
+          row.unknown ? row : { ...row, micGranted: false, micActive: false }
+        )
       )
       if (typeof data.warning === "string") setWarningMsg(data.warning)
       // فشل جزئي؟ الاستعلام التالي يُظهر من بقي يملك الصلاحية فعلاً
@@ -303,8 +319,13 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
     }
   }, [sessionId, load])
 
-  /** زر «كتم الجميع» بلا هدف = زر مضلِّل، فيُخفى حتى يوجد من يُكتم */
-  const anyMicGranted = rows.some((row) => row.micGranted === true)
+  /**
+   * زر «كتم الجميع» بلا هدف = زر مضلِّل، فيُخفى حتى يوجد من يُكتم.
+   *
+   * الهويات غير المعروفة مستثناة: «كتم الجميع» يعمل على سجل دخول هذه الجلسة
+   * حصراً، فصلاحية هوية لا نعرف صاحبها (المعلم مثلاً) ليست هدفاً ممكناً.
+   */
+  const anyMicGranted = rows.some((row) => !row.unknown && row.micGranted === true)
 
   // جلسة برابط خارجي (YouTube/Zoom/Meet) → لا غرفة LiveKit ولا لوحة
   if (loaded && !managed) return null
@@ -395,7 +416,7 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
                         تم إخراجه
                       </span>
                     )}
-                    {!isKicked && micGranted && (
+                    {!isKicked && !row.unknown && micGranted && (
                       <span
                         className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
                           row.micActive

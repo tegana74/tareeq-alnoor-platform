@@ -95,6 +95,49 @@ export function describeMicNotApplied(reason: "not_connected" | "rpc_failed"): s
 export const MIC_GRANT_REVOKE_LIMIT = { max: 10, windowMs: 10_000 } as const
 export const MIC_MUTE_ALL_LIMIT = { max: 2, windowMs: 10_000 } as const
 
+// ─── LIVE-9F — قراءة صلاحية نشر الميكروفون (تفسير واحد للسيرفر والعميل) ─────
+
+/**
+ * قيمة TrackSource.MICROPHONE في مخطط protobuf الخاص بـ LiveKit.
+ *
+ * livekit-client لا يُصدِّر هذا الـ enum (يُصدِّر Track.Source النصي فقط)،
+ * و @livekit/protocol ليست تبعية مباشرة في package.json — فلا تُستورد هنا.
+ * القيمة مثبَّتة في المخطط المولَّد: UNKNOWN=0, CAMERA=1, MICROPHONE=2,
+ * SCREEN_SHARE=3, SCREEN_SHARE_AUDIO=4. الطرف الذي يملك الـ enum
+ * (livekit-server-sdk على السيرفر) يُمرِّر قيمته صريحةً بدل الاعتماد عليها.
+ */
+export const MICROPHONE_TRACK_SOURCE = 2
+
+/** الشكل المشترك بين ParticipantPermission (سيرفر) وpermissions (عميل). */
+export interface MicrophonePublishPermission {
+  canPublish?: boolean
+  canPublishSources?: readonly number[] | null
+}
+
+/**
+ * هل تسمح هذه الصلاحية بنشر الميكروفون؟
+ *
+ * canPublish هي البوابة الأولى: بلا نشر لا ميكروفون. أما canPublishSources
+ * الفارغة فتعني **كل المصادر مسموحة** في دلالات LiveKit، وهذا هو التفسير
+ * الموحَّد هنا — كان السيرفر يقرأها سابقاً كـ«غير ممنوح» (LIVE-9E) فيختلف عن
+ * العميل، والفارق كان يُخفي طالباً يملك النشر فعلاً عن أهداف «كتم الجميع».
+ *
+ * التفسير الموحَّد هو الأكثر أماناً في الاتجاهين:
+ *   - كشف: من يستطيع النشر يُعَدّ ممنوحاً فيدخل في «كتم الجميع» ويظهر للمعلم.
+ *   - منح: مسار المنح لدينا يكتب [MICROPHONE] صريحاً دائماً، فلا يوسّع هذا
+ *     التفسير أي صلاحية — الكاميرا والشاشة ونشر البيانات تبقى محجوبة.
+ */
+export function grantsMicrophonePublish(
+  permission: MicrophonePublishPermission | null | undefined,
+  /** قيمة MICROPHONE من enum الـ SDK عند توفّره؛ وإلا الثابت المثبَّت أعلاه */
+  microphoneSource: number = MICROPHONE_TRACK_SOURCE
+): boolean {
+  if (!permission?.canPublish) return false
+  const sources = permission.canPublishSources
+  if (!sources || sources.length === 0) return true
+  return sources.includes(microphoneSource)
+}
+
 // ─── LIVE-9E — الإجراء المطلوب ──────────────────────────────────────────────
 
 export const MICROPHONE_ACTIONS = ["grant", "revoke"] as const

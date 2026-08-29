@@ -682,6 +682,26 @@ describe("LIVE-9E — toRoomParticipantSnapshot يعرض حالة الميكرو
     ).toBe(false)
   })
 
+  // LIVE-9F — تفسير واحد للطرفين: الفارغة = كل المصادر مسموحة (دلالة LiveKit)
+  it("canPublishSources الفارغة مع canPublish تُقرأ صلاحية قائمة على الطرفين", () => {
+    expect(
+      info({ permission: { canPublish: true, canPublishSources: [] } }).micGranted
+    ).toBe(true)
+    expect(info({ permission: { canPublish: true } }).micGranted).toBe(true)
+    // نفس النتيجة في قارئ العميل — لا انقسام بين السيرفر والعميل بعد الآن
+    expect(hasLocalMicrophonePermission({ canPublish: true, canPublishSources: [] })).toBe(
+      true
+    )
+    expect(hasLocalMicrophonePermission({ canPublish: true })).toBe(true)
+    // ولا يوسّع ذلك أي صلاحية: canPublish=false يبقى منعاً على الطرفين
+    expect(
+      info({ permission: { canPublish: false, canPublishSources: [] } }).micGranted
+    ).toBe(false)
+    expect(hasLocalMicrophonePermission({ canPublish: false, canPublishSources: [] })).toBe(
+      false
+    )
+  })
+
   it("micActive تعني مسار ميكروفون منشور غير مكتوم", () => {
     expect(
       info({
@@ -840,6 +860,42 @@ describe("LIVE-9E — POST /microphone", () => {
     expect(sdkMock.updateParticipant).toHaveBeenCalledWith("live-1", "s1", {
       permission: expect.objectContaining({ canPublish: false, canPublishSources: [] }),
     })
+  })
+
+  // LIVE-9F — لا تُعلَن حالة لا دليل عليها: فشل RPC = غير معروفة (null)
+  it("سحب فاشل (rpc_failed) لا يدّعي أن الميكروفون سُحب: micGranted=null", async () => {
+    sdkMock.updateParticipant.mockRejectedValueOnce(new Error("network down"))
+    const res = await postMicrophone(...postReq("/microphone", { userId: "s1", action: "revoke" }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.applied).toBe(false)
+    expect(body.micGranted).toBeNull()
+    expect(body.warning).toBe(describeMicNotApplied("rpc_failed"))
+  })
+
+  it("منح فاشل (rpc_failed) كذلك غير معروف: micGranted=null", async () => {
+    sdkMock.updateParticipant.mockRejectedValueOnce(new Error("network down"))
+    const res = await postMicrophone(...postReq("/microphone", { userId: "s1", action: "grant" }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.applied).toBe(false)
+    expect(body.micGranted).toBeNull()
+    expect(body.warning).toBe(describeMicNotApplied("rpc_failed"))
+  })
+
+  it("سحب لطالب غير متصل: micGranted=false مُثبَتة لا تخمين", async () => {
+    sdkMock.updateParticipant.mockRejectedValueOnce(
+      new sdkMock.ServerError("not found", 404, "not_found")
+    )
+    const res = await postMicrophone(...postReq("/microphone", { userId: "s1", action: "revoke" }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.applied).toBe(false)
+    expect(body.micGranted).toBe(false)
+    expect(body.warning).toBe(describeMicNotApplied("not_connected"))
   })
 
   it("جدول طلبات الدخول مفقود = 503 fail-closed", async () => {

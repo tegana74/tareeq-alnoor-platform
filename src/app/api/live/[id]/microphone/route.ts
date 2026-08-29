@@ -149,8 +149,7 @@ export async function POST(
       userId: targetUserId,
       action,
       applied: result.applied,
-      // ما يعرضه المعلم مباشرة: المنح لا يُعتبر قائماً إن لم يُطبَّق فعلاً
-      micGranted: action === "grant" && result.applied,
+      micGranted: resolveMicGranted(action, result),
       ...(result.applied || !result.reason
         ? {}
         : { warning: describeMicNotApplied(result.reason) }),
@@ -159,4 +158,25 @@ export async function POST(
     console.error("[LIVE_MIC_ERROR]", error)
     return NextResponse.json({ error: "حدث خطأ غير متوقع" }, { status: 500 })
   }
+}
+
+/**
+ * الحالة التي يُسمح بإعلانها للمعلم بعد العملية — LIVE-9F.
+ *
+ * لا يُعلَن إلا ما نملك دليلاً عليه:
+ *   - applied: النداء نجح، فالحالة هي الإجراء نفسه.
+ *   - not_connected: الطالب ليس في الغرفة، فلا صلاحية نشر قائمة له إطلاقاً
+ *     (التوكن يصدر بـ canPublish: false) — false مُثبَتة لا تخمين.
+ *   - rpc_failed: لا نعرف شيئاً. النداء قد يكون وصل ثم انقطع الرد، فسحبٌ فاشل
+ *     ظاهرياً قد يكون طُبِّق، ومنحٌ فاشل ظاهرياً قد يكون طُبِّق كذلك. كان
+ *     LIVE-9E يُعيد false هنا فيؤكد للمعلم أن الميكروفون مسحوب دون دليل.
+ *     null = غير معروفة، واللوحة تُعيد قراءة الحالة من LiveKit فوراً.
+ */
+function resolveMicGranted(
+  action: "grant" | "revoke",
+  result: { applied: boolean; reason?: "not_connected" | "rpc_failed" }
+): boolean | null {
+  if (result.applied) return action === "grant"
+  if (result.reason === "not_connected") return false
+  return null
 }

@@ -12,36 +12,30 @@
 //   - عميل معدَّل لا يستطيع النشر: خادم الوسائط يرفض المسار بلا صلاحية.
 
 import { RoomEvent, type LocalParticipant, type Room } from "livekit-client"
+import {
+  grantsMicrophonePublish,
+  MICROPHONE_TRACK_SOURCE,
+  type MicrophonePublishPermission,
+} from "./microphone-permissions"
 
-/**
- * قيمة TrackSource.MICROPHONE في protobuf الخاص بـ LiveKit.
- *
- * livekit-client لا يُصدِّر هذا الـ enum (يُصدِّر Track.Source النصي فقط)،
- * و @livekit/protocol ليست تبعية مباشرة في package.json — فلا تُستورد هنا.
- * القيمة مثبَّتة في المخطط المولَّد: UNKNOWN=0, CAMERA=1, MICROPHONE=2,
- * SCREEN_SHARE=3, SCREEN_SHARE_AUDIO=4.
- */
-export const MICROPHONE_TRACK_SOURCE = 2
+// LIVE-9F — قراءة الصلاحية صارت في الطبقة الخالصة المشتركة
+// (microphone-permissions.ts) بتفسير واحد للسيرفر والعميل: canPublishSources
+// الفارغة = كل المصادر مسموحة. يُعاد التصدير هنا حفاظاً على واجهة الوحدة.
+export { MICROPHONE_TRACK_SOURCE }
 
 /** الشكل الذي نحتاجه من ParticipantPermission — بلا اعتماد على نوع خارجي. */
-export interface LocalMicPermission {
-  canPublish?: boolean
-  canPublishSources?: number[]
-}
+export type LocalMicPermission = MicrophonePublishPermission
 
 /**
  * هل يملك المشارك المحلي صلاحية نشر الميكروفون الآن؟
  *
- * canPublishSources فارغة تعني «كل المصادر مسموحة» في دلالات LiveKit، لذلك
- * تُعالَج كسماح — لكن canPublish هي البوابة الأولى: بلا نشر لا ميكروفون.
+ * دلالات LiveKit: canPublish هي البوابة الأولى، وcanPublishSources الفارغة
+ * تعني «كل المصادر مسموحة». الحماية الحقيقية على خادم الوسائط لا هنا.
  */
 export function hasLocalMicrophonePermission(
   permissions: LocalMicPermission | undefined | null
 ): boolean {
-  if (!permissions?.canPublish) return false
-  const sources = permissions.canPublishSources
-  if (!sources || sources.length === 0) return true
-  return sources.includes(MICROPHONE_TRACK_SOURCE)
+  return grantsMicrophonePublish(permissions)
 }
 
 /** الصلاحية الحالية كما تراها الغرفة — تُستخدم عند الاتصال وبعد إعادة الاتصال. */

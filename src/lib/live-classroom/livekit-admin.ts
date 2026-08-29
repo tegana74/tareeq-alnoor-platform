@@ -1,14 +1,24 @@
 // LIVE-9C — LiveKit server-side admin adapter.
 //
-// ⛔ SERVER ONLY — الملف الوحيد في المشروع الذي يلمس RoomServiceClient و
-// LIVEKIT_API_SECRET. لا يجوز استيراده من أي ملف "use client" إطلاقاً.
+// ⛔ SERVER ONLY — لا يجوز استيراده من أي ملف "use client" إطلاقاً.
 //
-// ثلاث طبقات حماية:
+// نطاق الملكية (صُحِّح في LIVE-9F): هذا هو الملف الوحيد الذي يُدير المشاركين
+// (قراءة الحضور، الإزالة، صلاحيات النشر) عبر RoomServiceClient. ليس الملف
+// الوحيد في المشروع الذي يُنشئ RoomServiceClient ويقرأ LIVEKIT_API_SECRET:
+// data-channel.ts (LIVE-9D) يفعل ذلك أيضاً لإرسال رسائل الغرفة. لا يُعاد
+// تصميم data-channel.ts من هنا.
+//
+// ثلاث طبقات حماية لهذا الملف:
 //   1. حارس زمن التشغيل أدناه (يرمي فور تحميل الوحدة في المتصفح).
 //   2. اختبار في tests/live-room-participants.test.ts يفحص كل ملفات
-//      "use client" ويفشل إن استوردت هذه الوحدة.
+//      "use client" ويفشل إن استوردت هذه الوحدة أو ذكرت السر/العميل نصّياً.
 //   3. LIVEKIT_API_SECRET بلا بادئة NEXT_PUBLIC_، فـ Next.js لا يستبدلها
 //      في حِزم العميل أصلاً — السر لا يمكن أن يُدرَج في bundle المتصفح.
+//
+// حماية data-channel.ts تختلف ولا يجوز الخلط: الطبقة 3 وحدها تشمله، فهو بلا
+// حارس زمن تشغيل، وفحص الاستيراد في الطبقة 2 يستهدف اسم هذه الوحدة تحديداً.
+// كونه server-only اليوم هو عُرف استيراد قائم (يُستورد من route handlers فقط:
+// chat و raise-hand) لا قيد مفروض. تقويته بند مستقل خارج نطاق LIVE-9F.
 //
 // RoomServiceClient يُوقّع {roomAdmin: true, room} داخلياً لكل نداء
 // (RoomServiceClient.js — authHeader في كل دالة مشارك). لا نُنشئ roomAdmin JWT
@@ -22,6 +32,7 @@ import {
 } from "livekit-server-sdk"
 import type { ParticipantInfo, ParticipantPermission } from "livekit-server-sdk"
 import { toJoinedAtMs, type RoomParticipantSnapshot } from "./participants"
+import { grantsMicrophonePublish } from "./microphone-permissions"
 
 if (typeof window !== "undefined") {
   throw new Error(
@@ -95,12 +106,17 @@ const STUDENT_MIC_GRANTED_PERMISSION: Partial<ParticipantPermission> = {
   canPublishSources: [TrackSource.MICROPHONE],
 }
 
+/**
+ * هل يملك هذا المشارك صلاحية نشر ميكروفون الآن؟
+ *
+ * LIVE-9F: القرار مُوحَّد مع العميل في الطبقة الخالصة — canPublishSources
+ * الفارغة تعني «كل المصادر مسموحة» في دلالات LiveKit، فتُقرأ كصلاحية قائمة.
+ * قيمة MICROPHONE تُمرَّر من enum الـ SDK هنا بدل ثابت مكرَّر.
+ */
 function hasMicrophonePublishPermission(
   permission: ParticipantPermission | undefined
 ): boolean {
-  if (!permission?.canPublish) return false
-  const sources = permission.canPublishSources ?? []
-  return sources.includes(TrackSource.MICROPHONE)
+  return grantsMicrophonePublish(permission, TrackSource.MICROPHONE)
 }
 
 function isActivelyPublishingMicrophone(participant: ParticipantInfo): boolean {
@@ -114,9 +130,11 @@ function isActivelyPublishingMicrophone(participant: ParticipantInfo): boolean {
 /**
  * ParticipantInfo → لقطة محيَّدة.
  *
- * لا يُنقل الاسم ولا الـ metadata ولا الصلاحيات: الطبقة الخالصة لا ترى إلا
- * identity (= user.id) وحالة الاتصال ولحظة الانضمام. عرض المسارات (كاميرا/
- * ميكروفون/شاشة) مؤجَّل إلى LIVE-9E لأن الطالب مشاهد فقط في 9C فلا ينشر شيئاً.
+ * لا يُنقل الاسم ولا الـ metadata: الطبقة الخالصة لا ترى إلا identity
+ * (= user.id) وحالة الاتصال ولحظة الانضمام وحالة الميكروفون.
+ * micGranted/micActive أُضيفا في LIVE-9E: الأولى صلاحية نشر من الغرفة،
+ * والثانية نشر فعلي غير مكتوم — مؤشر عرض لا حاجز أمني. الكاميرا والشاشة
+ * لا تُنقلان لأن الطالب لا يُمنح نشرهما إطلاقاً.
  */
 export function toRoomParticipantSnapshot(
   participant: ParticipantInfo
