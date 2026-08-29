@@ -8,7 +8,7 @@ import {
 import {
   ADMISSION_UNAVAILABLE,
   isAdmissionTableMissing,
-  readRosterAdmissions,
+  readRosterModerationTargets,
 } from "@/lib/live-classroom/admission-server"
 import {
   describeMuteAllPartialFailure,
@@ -16,6 +16,7 @@ import {
   MIC_RATE_LIMITED,
   MIC_ROOM_UNREACHABLE,
   MICROPHONE_REFUSAL_RESPONSES,
+  selectMuteAllEligibleUserIds,
   selectMuteAllTargets,
 } from "@/lib/live-classroom/microphone-permissions"
 import {
@@ -37,6 +38,9 @@ export const dynamic = "force-dynamic"
  *
  * الأهداف تُشتق من تقاطع سجل دخول هذه الجلسة مع حضور LiveKit، فلا يمكن أن
  * يشمل النداء المعلم نفسه: هوية المعلم لا سجل دخول لها.
+ *
+ * LIVE-9F/S1: ولا يُكتفى بذلك — دور كل هدف يُعاد قراءته من جدول User ويُستثنى
+ * كل من ليس STUDENT ومن يملك إدارة الجلسة، فالحماية تحقُّق لا استنتاج.
  *
  * تعذّر الوصول إلى LiveKit يُفشل الطلب صراحة (503): لا يجوز إبلاغ المعلم بأن
  * الجميع كُتم بينما لم يُطبَّق شيء.
@@ -91,7 +95,7 @@ export async function POST(
 
     let admissions
     try {
-      admissions = await readRosterAdmissions(session.id)
+      admissions = await readRosterModerationTargets(session.id)
     } catch (error) {
       if (isAdmissionTableMissing(error)) {
         console.error("[LIVE_MIC_MUTE_ALL] live_session_admissions table missing")
@@ -114,8 +118,13 @@ export async function POST(
       )
     }
 
+    // LIVE-9F/S1 — الدور يُعاد التحقق منه من جدول User قبل الكتم، فلا يكفي
+    // كون الهوية في سجل دخول الجلسة: معلم أو أدمن بسجل (بأي طريق) لا يُكتم.
     const targets = selectMuteAllTargets({
-      rosterUserIds: admissions.map((row) => row.userId),
+      rosterUserIds: selectMuteAllEligibleUserIds({
+        roster: admissions,
+        sessionTeacherId: session.teacherId,
+      }),
       room,
     })
 

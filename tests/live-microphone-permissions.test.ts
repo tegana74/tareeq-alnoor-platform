@@ -140,6 +140,7 @@ import {
   MIC_ROOM_UNREACHABLE,
   MICROPHONE_ACTIONS,
   MICROPHONE_REFUSAL_RESPONSES,
+  selectMuteAllEligibleUserIds,
   selectMuteAllTargets,
   toMicrophoneAction,
   type MicRefusalReason,
@@ -200,19 +201,35 @@ function mockTarget(
   prismaMock.user.findUnique.mockResolvedValue(user as never)
 }
 
-function rosterRows(rows: { userId: string; status?: string }[]) {
+/**
+ * صفوف سجل الدخول. الشكل يخدم القارئتين معاً: `readRosterAdmissions` (عرض)
+ * و`readRosterModerationTargets` (دور/ملكية — LIVE-9F/S1). الافتراض STUDENT
+ * بلا teacherId، ويُتاح تجاوزه لاختبار إعادة التحقق من الدور.
+ */
+function rosterRows(
+  rows: {
+    userId: string
+    status?: string
+    user?: { role: string; teacherId: string | null } | null
+  }[]
+) {
   prismaMock.liveSessionAdmission.findMany.mockResolvedValue(
     rows.map((r) => ({
       userId: r.userId,
       status: r.status ?? "approved",
       decidedAt: new Date("2026-08-28T10:00:00Z"),
-      user: {
-        firstName: "سارة",
-        middleName: null,
-        lastName: "علي",
-        year: { name: "الثالث الثانوي" },
-        department: null,
-      },
+      user:
+        r.user === null
+          ? null
+          : {
+              role: r.user?.role ?? "STUDENT",
+              teacherId: r.user?.teacherId ?? null,
+              firstName: "سارة",
+              middleName: null,
+              lastName: "علي",
+              year: { name: "الثالث الثانوي" },
+              department: null,
+            },
     })) as never
   )
 }
@@ -1037,5 +1054,89 @@ describe("LIVE-9E — POST /microphone/mute-all", () => {
     const limited = await postMuteAll(...postReq("/microphone/mute-all"))
     expect(limited.status).toBe(429)
     expect(MIC_MUTE_ALL_LIMIT.max).toBeLessThan(MIC_GRANT_REVOKE_LIMIT.max)
+  })
+})
+
+// ============== LIVE-9F/S1 — إعادة التحقق من دور هدف «كتم الجميع» ==============
+
+describe("LIVE-9F — selectMuteAllEligibleUserIds", () => {
+  it("يُبقي الطلاب وحدهم", () => {
+    const ids = selectMuteAllEligibleUserIds({
+      roster: [
+        { userId: "s1", user: { role: "STUDENT", teacherId: null } },
+        { userId: "s2", user: { role: "STUDENT", teacherId: null } },
+      ],
+      sessionTeacherId: "t1",
+    })
+    expect(ids).toEqual(["s1", "s2"])
+  })
+
+  it("يستثني الأدمن ومعلم الجلسة ومعلماً آخر وسجلاً بلا مستخدم", () => {
+    const ids = selectMuteAllEligibleUserIds({
+      roster: [
+        { userId: "admin", user: { role: "ADMIN", teacherId: null } },
+        { userId: "owner", user: { role: "TEACHER", teacherId: "t1" } },
+        { userId: "other-teacher", user: { role: "TEACHER", teacherId: "t2" } },
+        { userId: "deleted", user: null },
+        { userId: "s1", user: { role: "STUDENT", teacherId: null } },
+      ],
+      sessionTeacherId: "t1",
+    })
+    expect(ids).toEqual(["s1"])
+  })
+
+  it("طالب يملك teacherId (بيانات متناقضة) يبقى طالباً — الدور هو الفاصل", () => {
+    const ids = selectMuteAllEligibleUserIds({
+      roster: [{ userId: "s1", user: { role: "STUDENT", teacherId: "t1" } }],
+      sessionTeacherId: "t1",
+    })
+    expect(ids).toEqual(["s1"])
+  })
+})
+
+describe("LIVE-9F — mute-all يُعيد التحقق من الدور قبل الكتم", () => {
+  it("سجل دخول لمعلم الجلسة لا يُكتم حتى لو كان متصلاً بصلاحية", async () => {
+    rosterRows([
+      { userId: "s1", user: { role: "STUDENT", teacherId: null } },
+      { userId: "owner", user: { role: "TEACHER", teacherId: "t1" } },
+      { userId: "admin", user: { role: "ADMIN", teacherId: null } },
+    ])
+    roomSnapshot([
+      { identity: "s1", mic: true },
+      { identity: "owner", mic: true },
+      { identity: "admin", mic: true },
+    ])
+
+    const res = await postMuteAll(...postReq("/microphone/mute-all"))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toMatchObject({ ok: true, revoked: 1, failed: 0 })
+    expect(sdkMock.updateParticipant).toHaveBeenCalledTimes(1)
+    expect(sdkMock.updateParticipant).toHaveBeenCalledWith(
+      "live-1",
+      "s1",
+      expect.anything()
+    )
+  })
+
+  it("سجل بلا مستخدم في جدول User لا يُكتم", async () => {
+    rosterRows([{ userId: "ghost-record", user: null }])
+    roomSnapshot([{ identity: "ghost-record", mic: true }])
+
+    const res = await postMuteAll(...postReq("/microphone/mute-all"))
+    expect((await res.json()).revoked).toBe(0)
+    expect(sdkMock.updateParticipant).not.toHaveBeenCalled()
+  })
+
+  it("الدور يُقرأ من جدول User لا من العميل — الاستعلام يطلب role/teacherId", async () => {
+    await postMuteAll(...postReq("/microphone/mute-all"))
+    expect(prismaMock.liveSessionAdmission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          user: { select: { role: true, teacherId: true } },
+        }),
+      })
+    )
   })
 })

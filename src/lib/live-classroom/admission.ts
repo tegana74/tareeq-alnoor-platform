@@ -73,6 +73,42 @@ export function canRequestAdmission(status: LiveSessionStatus): boolean {
 }
 
 /**
+ * هل تُعرض لوحة «طلبات الدخول» للمعلم في هذه الحالة؟ — LIVE-9F/S4
+ *
+ * كانت اللوحة مقيَّدة بـ waiting/live بينما `canRequestAdmission` تسمح بالطلب في
+ * `scheduled` أيضاً، فكان طلب الطالب المشروع لا يجد لوحة تعرضه: الطالب ينتظر
+ * قراراً لا أحد يراه. الشرط الآن مشتق من نفس الدالة، فلا يمكن أن يتباعد الاثنان
+ * مستقبلاً — ما يُسمح بطلبه يُعرض حتماً.
+ *
+ * لا علاقة لهذا بلوحة المشاركين (`shouldTrackParticipants`): تلك تبقى على
+ * waiting/live لأنها تُصدر نداءً إلى LiveKit، ولا غرفة قبل بدء الجلسة.
+ */
+export function shouldShowAdmissionPanel(params: {
+  sessionUrl: string | null | undefined
+  status: string
+}): boolean {
+  if (!isAdmissionManagedSession(params.sessionUrl)) return false
+  return canRequestAdmission(params.status as LiveSessionStatus)
+}
+
+/**
+ * حد معدّل طلبات الدخول للطالب الواحد — LIVE-9F/S2.
+ *
+ * «طلب الدخول» زر يضغطه الطالب، لا استعلام دوري (الاستعلام على GET/status)،
+ * فخمسة طلبات في عشر ثوانٍ أوسع من أي استخدام مشروع. الغرض منع ضغط متكرر
+ * يفتح كتابة على قاعدة البيانات مع كل نقرة، لا تقييد المستخدم.
+ *
+ * يُعاد استخدام `rate-limit.ts` القائم (9D/9E) بلا آلية جديدة — وهو عدّاد
+ * داخل العملية: يُقيّد كل instance وحده. المخزن المركزي مؤجَّل (D3).
+ */
+export const ADMISSION_REQUEST_LIMIT = { max: 5, windowMs: 10_000 } as const
+
+export const ADMISSION_RATE_LIMITED = {
+  status: 429,
+  error: "طلبات كثيرة جداً. انتظر لحظة ثم أعد المحاولة",
+} as const
+
+/**
  * هل يملك هذا المستخدم إدارة طلبات دخول هذه الجلسة؟
  * الأدمن، أو المعلم المالك للجلسة حصراً. لا يُقرأ أي دور أو ملكية من العميل.
  */

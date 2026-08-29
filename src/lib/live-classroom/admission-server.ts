@@ -15,6 +15,7 @@ import {
   type AdmissionState,
 } from "./admission"
 import { ROSTER_STATUSES, type AdmissionRosterRow } from "./participants"
+import type { MuteAllRosterEntry } from "./microphone-permissions"
 
 /** رفض موحّد الشكل حتى تتطابق رسائل الـ routes. */
 export type AccessDenial = { ok: false; status: number; error: string }
@@ -264,6 +265,28 @@ export async function readRosterAdmissions(
     departmentName: row.user.department?.name ?? null,
     decidedAt: row.decidedAt,
   }))
+}
+
+/**
+ * سجل دخول هذه الجلسة مع دور كل صاحب سجل — LIVE-9F/S1.
+ *
+ * قراءة منفصلة عن `readRosterAdmissions` بقصد: تلك تخدم العرض (اسم/سنة/قسم)
+ * ويستهلكها مسار المشاركين، وهذه تخدم قراراً أمنياً فتقرأ الدور والملكية من
+ * جدول User حصراً ولا شيء غيرهما. الدور لا يُقرأ من العميل ولا يُستنتج من
+ * وجود السجل. التصفية نفسها في `selectMuteAllEligibleUserIds` (دالة خالصة).
+ */
+export async function readRosterModerationTargets(
+  sessionId: string
+): Promise<MuteAllRosterEntry[]> {
+  const rows = await prisma.liveSessionAdmission.findMany({
+    where: { sessionId, status: { in: [...ROSTER_STATUSES] } },
+    select: {
+      userId: true,
+      user: { select: { role: true, teacherId: true } },
+    },
+  })
+
+  return rows.map((row) => ({ userId: row.userId, user: row.user }))
 }
 
 export type KickTarget = {

@@ -132,6 +132,20 @@ function tableMissing() {
   return Object.assign(new Error("table does not exist"), { code: "P2021" })
 }
 
+/**
+ * LIVE-9F/S2 — حد معدّل `/admission/request` عدّاد داخل العملية بمفتاح
+ * (جلسة + طالب)، فاختبارات متعددة بنفس الهوية كانت ستستنفده وتُسرّب 429 إلى
+ * ما بعدها. لكل اختبار طالب بهوية فريدة، واختبار الحد نفسه يستهلك هويته وحده.
+ */
+let studentSeq = 0
+let currentStudentId = "s1"
+function freshStudent(): string {
+  studentSeq += 1
+  currentStudentId = `s${studentSeq}`
+  setUser({ id: currentStudentId, role: "STUDENT", teacherId: null })
+  return currentStudentId
+}
+
 // ============================= Setup =============================
 
 beforeEach(() => {
@@ -146,12 +160,12 @@ beforeEach(() => {
   livekitServerMock.FakeAccessToken.resetCalls()
 
   // الافتراضي: طالب مصرَّح له، جلسة LiveKit مباشرة، لا طلب دخول بعد
-  setUser({ id: "s1", role: "STUDENT", teacherId: null })
+  freshStudent()
   mockSession()
   mockAdmission(null)
   prismaMock.liveSessionAdmission.create.mockResolvedValue({
     sessionId: "live-1",
-    userId: "s1",
+    userId: currentStudentId,
     status: "pending",
     requestedAt: new Date(),
   } as never)
@@ -210,7 +224,7 @@ describe("POST /api/live/[id]/admission/request", () => {
     await postRequest(...postReq("/admission/request", "live-1"))
 
     expect(prismaMock.liveSessionAdmission.create).toHaveBeenCalledWith({
-      data: { sessionId: "live-1", userId: "s1", status: "pending" },
+      data: { sessionId: "live-1", userId: currentStudentId, status: "pending" },
     })
   })
 

@@ -2,6 +2,8 @@ import { NextResponse, NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import {
+  ADMISSION_RATE_LIMITED,
+  ADMISSION_REQUEST_LIMIT,
   canManageAdmission,
   canRequestAdmission,
   isAdmissionManagedSession,
@@ -13,6 +15,7 @@ import {
   checkStudentSessionAccess,
   isAdmissionTableMissing,
 } from "@/lib/live-classroom/admission-server"
+import { checkRateLimit } from "@/lib/live-classroom/rate-limit"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
 
 export const dynamic = "force-dynamic"
@@ -60,7 +63,24 @@ export async function POST(
       )
     }
 
-    // ─── 4. الجلسات الخارجية (YouTube/Zoom/Meet) بلا نظام دخول ───
+    // ─── 4. حد معدّل بعد إثبات الهوية والدور (LIVE-9F/S2) ────────────
+    // بعد الفحوص المجانية وقبل أي قراءة اشتراك أو كتابة سجل: نقرة متكررة لا
+    // تفتح مسار قاعدة بيانات جديداً. المفتاح هو الجلسة + الطالب المصادَق عليه،
+    // فلا يستهلك مجهول الهوية حصة أحد ولا تُقيَّد جلسة بسبب أخرى.
+    if (
+      !checkRateLimit(
+        `admission_request_${id}_${user.id}`,
+        ADMISSION_REQUEST_LIMIT.max,
+        ADMISSION_REQUEST_LIMIT.windowMs
+      )
+    ) {
+      return NextResponse.json(
+        { error: ADMISSION_RATE_LIMITED.error },
+        { status: ADMISSION_RATE_LIMITED.status }
+      )
+    }
+
+    // ─── 5. الجلسات الخارجية (YouTube/Zoom/Meet) بلا نظام دخول ───
     if (!isAdmissionManagedSession(session.url)) {
       return NextResponse.json(
         { error: "هذه الجلسة لا تستخدم نظام طلبات الدخول" },
@@ -68,13 +88,13 @@ export async function POST(
       )
     }
 
-    // ─── 5. صلاحيات الكورس والحجز (كما هي، بلا تخفيف) ────────────
+    // ─── 6. صلاحيات الكورس والحجز (كما هي، بلا تخفيف) ────────────
     const access = await checkStudentSessionAccess(user, session)
     if (!access.ok) {
       return NextResponse.json({ error: access.error }, { status: access.status })
     }
 
-    // ─── 6. حالة الجلسة تسمح بالطلب ──────────────────────────────
+    // ─── 7. حالة الجلسة تسمح بالطلب ──────────────────────────────
     if (!canRequestAdmission(session.status as LiveSessionStatus)) {
       return NextResponse.json(
         { error: "لا يمكن طلب الدخول لهذه الجلسة" },
@@ -82,7 +102,7 @@ export async function POST(
       )
     }
 
-    // ─── 7. إنشاء/تحديث الطلب — idempotent ───────────────────────
+    // ─── 8. إنشاء/تحديث الطلب — idempotent ───────────────────────
     const where = { sessionId_userId: { sessionId: id, userId: user.id } }
     const existing = await prisma.liveSessionAdmission.findUnique({ where })
     const outcome = resolveRequestOutcome(toAdmissionState(existing))

@@ -26,6 +26,7 @@ import { AdmissionGate } from "./admission-gate"
 import { AdmissionPanel } from "./admission-panel"
 import { ParticipantsPanel } from "./participants-panel"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
+import { shouldShowAdmissionPanel } from "@/lib/live-classroom/admission"
 import type { AdmissionState } from "@/lib/live-classroom/admission"
 import { shouldTrackParticipants } from "@/lib/live-classroom/participants"
 import { Room, RoomEvent, VideoPresets, createLocalTracks } from "livekit-client"
@@ -627,8 +628,9 @@ export function LiveRoomClient({
         </div>
       )}
 
-      {/* LIVE-9B — طلبات الدخول (المعلم المالك/الأدمن، جلسات LiveKit النشطة فقط) */}
-      {isManager && !url && (status === "waiting" || status === "live") && (
+      {/* LIVE-9B — طلبات الدخول. LIVE-9F/S4: الشرط مشتق من سياسة الطلب نفسها
+          (scheduled + waiting + live) فلا تُخفى لوحة عن طلب مسموح به. */}
+      {isManager && shouldShowAdmissionPanel({ sessionUrl: url, status }) && (
         <AdmissionPanel sessionId={sessionId} />
       )}
 

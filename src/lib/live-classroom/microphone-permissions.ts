@@ -1,5 +1,9 @@
 import { z } from "zod"
-import { isAdmissionManagedSession, type AdmissionState } from "./admission"
+import {
+  canManageAdmission,
+  isAdmissionManagedSession,
+  type AdmissionState,
+} from "./admission"
 
 export const MicrophoneTargetSchema = z.object({
   userId: z.string().min(1),
@@ -165,12 +169,51 @@ export const MIC_ROOM_UNREACHABLE = {
   error: "تعذر الوصول إلى خدمة البث الآن. أعد المحاولة",
 } as const
 
+/** صف سجل دخول مع دور صاحبه كما يقرأه السيرفر من جدول User (لا من العميل). */
+export type MuteAllRosterEntry = {
+  userId: string
+  user: { role: string; teacherId: string | null } | null
+}
+
+/**
+ * تصفية سجل الدخول إلى الطلاب وحدهم قبل «كتم الجميع» — LIVE-9F/S1.
+ *
+ * الحماية القائمة كانت اشتقاق الأهداف من سجل دخول الجلسة: مسار
+ * `/admission/request` يرفض المعلم والأدمن، فلا سجل لهما فلا يمكن كتمهما.
+ * لكن ذلك دفاع بالوراثة لا بالتحقق: لو ظهر سجل لغير طالب بأي طريق آخر
+ * (تغيّر دور مستخدم بعد الموافقة، إدخال إداري، مسار مستقبلي) لصار المعلم
+ * هدفاً ممكناً. هنا يُعاد التحقق من الدور والملكية من جدول User مباشرة —
+ * نفس ما يفعله مسار المنح الفردي (`canModerateMicrophoneTarget`).
+ *
+ * `user === null` (مستخدم محذوف) يُستثنى: لا نتصرف بهوية لا نعرف صاحبها.
+ * لا يُقرأ أي دور من العميل، والاشتقاق من السجل يبقى قائماً — هذه طبقة فوقه.
+ */
+export function selectMuteAllEligibleUserIds(params: {
+  roster: readonly MuteAllRosterEntry[]
+  sessionTeacherId: string
+}): string[] {
+  const eligible: string[] = []
+  for (const entry of params.roster) {
+    if (!entry.user) continue
+    if (entry.user.role !== "STUDENT") continue
+    // ADMIN/معلم الجلسة لا يُكتم أبداً — نفس دالة الصلاحية المستخدمة في الـ routes
+    if (canManageAdmission(entry.user, { teacherId: params.sessionTeacherId })) {
+      continue
+    }
+    eligible.push(entry.userId)
+  }
+  return eligible
+}
+
 /**
  * أهداف «كتم الجميع»: الطلاب المتصلون الذين يملكون صلاحية ميكروفون فعالة.
  *
  * القائمة تُبنى من تقاطع سجل الدخول (طلاب هذه الجلسة حصراً) مع حضور LiveKit،
  * فلا يمكن أن تشمل المعلم أو الأدمن: هوية المعلم لا سجل دخول لها أصلاً.
  * الهويات غير المعروفة في الغرفة تُستثنى أيضاً — لا نتصرف بهوية لا نعرف صاحبها.
+ *
+ * LIVE-9F/S1: `rosterUserIds` تصل الآن مُصفّاة بـ
+ * `selectMuteAllEligibleUserIds`، فالدور مُتحقَّق لا مُستنتَج.
  */
 export function selectMuteAllTargets(params: {
   rosterUserIds: readonly string[]

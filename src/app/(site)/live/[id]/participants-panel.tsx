@@ -97,12 +97,19 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
    */
   const decidedRef = useRef<Map<string, AdmissionStatus>>(new Map())
 
-  const load = useCallback(async () => {
+  /**
+   * `keepErrorMsg` — استعلام يُطلَب بعد فشل عملية لكشف ما جرى فعلاً: يُحدِّث حالة
+   * المشاركين ولا يمسّ رسالة الخطأ المعروضة، فنجاح الاستعلام ليس نجاحاً للعملية.
+   */
+  const load = useCallback(async (options?: { keepErrorMsg?: boolean }) => {
+    const keepErrorMsg = options?.keepErrorMsg === true
     try {
       const res = await fetch(`/api/live/${sessionId}/participants`)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setErrorMsg(typeof data.error === "string" ? data.error : undefined)
+        if (!keepErrorMsg) {
+          setErrorMsg(typeof data.error === "string" ? data.error : undefined)
+        }
         return
       }
       const data = await res.json()
@@ -126,7 +133,7 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
       setConnectedCount(
         typeof data.connectedCount === "number" ? data.connectedCount : 0
       )
-      setErrorMsg(undefined)
+      if (!keepErrorMsg) setErrorMsg(undefined)
     } catch {
       // انقطاع مؤقت — الاستعلام التالي يكفي، بلا رسالة خطأ
     } finally {
@@ -257,8 +264,9 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
               ? data.error
               : "تعذر تحديث صلاحية الميكروفون."
           )
-          // خطأ خادم قد يقع بعد تطبيق الصلاحية فعلاً — لا نُخمّن، نقرأ من جديد
-          if (res.status >= 500) void load()
+          // خطأ خادم قد يقع بعد تطبيق الصلاحية فعلاً — لا نُخمّن، نقرأ من جديد.
+          // الرسالة تبقى: الاستعلام يصحّح الحالة ولا يلغي إبلاغ المعلم بالفشل.
+          if (res.status >= 500) void load({ keepErrorMsg: true })
           return
         }
         const granted = data.micGranted

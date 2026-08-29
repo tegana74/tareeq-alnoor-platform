@@ -82,6 +82,8 @@ function setUser(u: { id: string; role: string; teacherId?: string | null } | nu
   )
 }
 
+const originalFetch = globalThis.fetch
+
 beforeEach(() => {
   vi.clearAllMocks()
   process.env.LIVEKIT_API_KEY = "k"
@@ -91,8 +93,16 @@ beforeEach(() => {
   vi.mocked(canAccessCourse).mockResolvedValue(true)
 
   // fetch → token endpoint contract
+  //
+  // LIVE-9F/S5 — تشخيص flake: كانت هذه الدالة تبدأ بـ
+  // `await import("@/app/api/live/[id]/token/route")` ونتيجتها غير مستخدمة.
+  // استيراد ميت لكنه ليس بلا أثر: كل نداء fetch كان يُحمّل شجرة الوحدة
+  // الحقيقية (prisma + livekit-server-sdk) داخل زمن الاختبار، فيصير زمن
+  // `connectStudentSubscriber` تابعاً لزمن تحميل الوحدات لا لمنطق الاختبار —
+  // وهو المسار الوحيد هنا القادر على تجاوز مهلة الاختبار الافتراضية على بارد.
+  // العقد المُختبَر هو شكل استجابة التوكن فقط، فحُذف الاستيراد بلا تغيير أي
+  // تأكيد ولا حذف أي اختبار.
   globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const res = await import("@/app/api/live/[id]/token/route")
     const url = String(input)
     const match = url.match(/\/api\/live\/([^/]+)\/token/)
     if (!match) throw new Error(`unexpected fetch: ${url}`)
@@ -106,6 +116,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  // `globalThis.fetch` أُسند إسناداً مباشراً لا عبر spy، فـ`restoreAllMocks`
+  // لا تُرجعه — تُعاد الحالة صراحة حتى لا يرث أي ملف لاحق fetch مُرقَّعاً.
+  globalThis.fetch = originalFetch
 })
 
 // ============================= Reconnect Semantics =============================
