@@ -79,6 +79,15 @@ const sdkMock = vi.hoisted(() => {
     DISCONNECTED: 3,
   }
 
+  /** قيم مطابقة لـ enum TrackSource في @livekit/protocol (livekit-server-sdk 2.18.0) */
+  const TrackSource = {
+    UNKNOWN: 0,
+    CAMERA: 1,
+    MICROPHONE: 2,
+    SCREEN_SHARE: 3,
+    SCREEN_SHARE_AUDIO: 4,
+  }
+
   return {
     callOrder,
     listParticipants,
@@ -87,6 +96,7 @@ const sdkMock = vi.hoisted(() => {
     FakeRoomServiceClient,
     ServerError,
     ParticipantInfo_State,
+    TrackSource,
   }
 })
 
@@ -95,6 +105,7 @@ vi.mock("livekit-server-sdk", () => ({
   RoomServiceClient: sdkMock.FakeRoomServiceClient,
   ServerError: sdkMock.ServerError,
   ParticipantInfo_State: sdkMock.ParticipantInfo_State,
+  TrackSource: sdkMock.TrackSource,
 }))
 
 import { getCurrentUser } from "@/lib/auth"
@@ -178,7 +189,14 @@ function rosterRow(overrides: Partial<AdmissionRosterRow> = {}): AdmissionRoster
 function snapshot(
   overrides: Partial<RoomParticipantSnapshot> = {}
 ): RoomParticipantSnapshot {
-  return { identity: "s1", connected: true, joinedAtMs: 1_700_000_000_000, ...overrides }
+  return {
+    identity: "s1",
+    connected: true,
+    joinedAtMs: 1_700_000_000_000,
+    micGranted: false,
+    micActive: false,
+    ...overrides,
+  }
 }
 
 /** صفوف قاعدة البيانات كما يقرأها readRosterAdmissions (اسم مركّب من جدول User) */
@@ -475,6 +493,7 @@ describe("LIVE-9C — toRoomParticipantSnapshot", () => {
       state: sdkMock.ParticipantInfo_State.ACTIVE,
       joinedAt: BigInt(0),
       joinedAtMs: BigInt(1_700_000_000_000),
+      tracks: [],
     } as never)
 
     expect(snap.identity).toBe("s1")
@@ -490,6 +509,7 @@ describe("LIVE-9C — toRoomParticipantSnapshot", () => {
       state: sdkMock.ParticipantInfo_State.JOINED,
       joinedAt: BigInt(1_700_000_000),
       joinedAtMs: BigInt(0),
+      tracks: [],
     } as never)
     expect(snap.joinedAtMs).toBe(1_700_000_000_000)
   })
@@ -500,6 +520,7 @@ describe("LIVE-9C — toRoomParticipantSnapshot", () => {
       state: sdkMock.ParticipantInfo_State.DISCONNECTED,
       joinedAt: BigInt(0),
       joinedAtMs: BigInt(0),
+      tracks: [],
     } as never)
     expect(snap.connected).toBe(false)
     expect(snap.joinedAtMs).toBeNull()
@@ -553,6 +574,7 @@ describe("LIVE-9C — GET /api/live/[id]/participants", () => {
         state: sdkMock.ParticipantInfo_State.ACTIVE,
         joinedAt: BigInt(0),
         joinedAtMs: BigInt(1_700_000_000_000),
+        tracks: [],
       },
     ])
 

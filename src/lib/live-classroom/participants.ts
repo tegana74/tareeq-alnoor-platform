@@ -29,6 +29,10 @@ export interface RoomParticipantSnapshot {
   connected: boolean
   /** bigint من ParticipantInfo — يُحيَّد قبل أي تسلسل JSON */
   joinedAtMs: bigint | number | null
+  /** صلاحية ميكروفون فعالة حالياً في LiveKit */
+  micGranted: boolean
+  /** مسار ميكروفون منشور وغير مكتوم حالياً */
+  micActive: boolean
 }
 
 /** صف طلب دخول كما يُقرأ من قاعدة البيانات، مضافاً إليه اسم المستخدم. */
@@ -55,6 +59,10 @@ export interface RosterParticipant {
   joinedAtMs: number | null
   /** هوية موجودة في الغرفة بلا سجل دخول مطابق — تُعرض ولا تُخترع لها بيانات. */
   unknown: boolean
+  /** null عند تعذر الوصول إلى LiveKit */
+  micGranted: boolean | null
+  /** null عند تعذر الوصول إلى LiveKit */
+  micActive: boolean | null
 }
 
 /**
@@ -123,6 +131,16 @@ export function mergeRoster(params: {
           : "offline",
       joinedAtMs: snapshot?.connected ? toJoinedAtMs(snapshot.joinedAtMs) : null,
       unknown: false,
+      micGranted: !roomReachable
+        ? null
+        : snapshot?.connected
+          ? snapshot.micGranted
+          : false,
+      micActive: !roomReachable
+        ? null
+        : snapshot?.connected
+          ? snapshot.micActive
+          : false,
     })
   }
 
@@ -138,6 +156,8 @@ export function mergeRoster(params: {
       presence: "connected",
       joinedAtMs: toJoinedAtMs(snapshot.joinedAtMs),
       unknown: true,
+      micGranted: snapshot.micGranted,
+      micActive: snapshot.micActive,
     })
   }
 

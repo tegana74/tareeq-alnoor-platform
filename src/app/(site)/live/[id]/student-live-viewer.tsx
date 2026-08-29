@@ -1,19 +1,29 @@
 "use client"
 
 // LIVE-8C/8D — Student LiveKit Viewer
-// مشاهد فقط: لا كاميرا، لا ميكروفون، لا إنشاء مسارات محلية إطلاقاً.
+// مشاهد أساساً: لا كاميرا، لا مشاركة شاشة، لا نشر بيانات — إطلاقاً.
 // LIVE-8D: heartbeat أثناء المشاهدة الفعلية + retry داخلي + مؤشر جودة الشبكة.
+// LIVE-9E: الميكروفون وحده يُسمح به، وفقط بعد منح صريح من المعلم يصل كصلاحية
+// من خادم LiveKit (ParticipantPermissionsChanged). لا رسالة DataChannel تفتح
+// الميكروفون: الرسائل قابلة للانتحال، والصلاحية لا. عند إعادة الاتصال أو
+// الانفصال نعود إلى المنع الافتراضي لأن التوكن نفسه يصدر بلا صلاحية نشر.
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Radio, Loader2, MonitorPlay, MonitorUp, Volume2, AlertCircle, Wifi, ShieldX } from "lucide-react"
+import { Radio, Loader2, Mic, MicOff, MonitorPlay, MonitorUp, Volume2, AlertCircle, Wifi, ShieldX } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RoomEvent, DisconnectReason, type RemoteTrack } from "livekit-client"
+import { RoomEvent, DisconnectReason, Track, type RemoteTrack } from "livekit-client"
 import {
   connectStudentSubscriber,
   attachRemoteTrackHandlers,
   shouldUseLiveKitViewer,
   type StudentSubscriberHandle,
 } from "@/lib/live-classroom/student-subscriber"
+import {
+  bindMicrophonePermission,
+  disableStudentMicrophone,
+  enableStudentMicrophone,
+  readRoomMicrophonePermission,
+} from "@/lib/live-classroom/student-microphone"
 import { isScreenShareRemoteTrack } from "@/lib/live-classroom/publisher-media"
 import { useHeartbeat } from "@/lib/live-classroom/use-heartbeat"
 import type { LiveSessionStatus } from "@/lib/live-classroom/types"
@@ -57,11 +67,25 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
    */
   const [removedByHost, setRemovedByHost] = useState(false)
 
+  /**
+   * LIVE-9E — حالة الميكروفون.
+   *
+   * micGranted تُقرأ من صلاحيات المشارك المحلي في الغرفة، لا من حالة نضبطها
+   * نحن. micOn تُشتق من أحداث النشر/إلغاء النشر لا من نية المستخدم: عندما يسحب
+   * المعلم الصلاحية يُلغي الخادم نشر المسار، فيصل LocalTrackUnpublished
+   * ويُطفأ الزر من تلقائه — بلا حاجة إلى إبلاغ من العميل.
+   */
+  const [micGranted, setMicGranted] = useState(false)
+  const [micOn, setMicOn] = useState(false)
+  const [micBusy, setMicBusy] = useState(false)
+  const [micError, setMicError] = useState<string>()
+
   // retry داخلي — يعيد الاتصال دون إعادة تحميل الصفحة كاملة
   const [connectAttempt, setConnectAttempt] = useState(0)
 
   const handleRef = useRef<StudentSubscriberHandle | null>(null)
   const detachHandlersRef = useRef<(() => void) | null>(null)
+  const detachMicRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(true)
   const firstTrackRef = useRef(false)
 
@@ -137,13 +161,23 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         })
 
         handle.room.on(RoomEvent.Reconnecting, () => {
-          if (mountedRef.current) setConnection("reconnecting")
+          if (!mountedRef.current) return
+          setConnection("reconnecting")
+          // لا نُبقي زر التحدث فعالاً أثناء انقطاع لا نعرف كيف ينتهي
+          setMicGranted(false)
+          setMicOn(false)
         })
         handle.room.on(RoomEvent.Reconnected, () => {
-          if (mountedRef.current) setConnection("connected")
+          if (!mountedRef.current) return
+          setConnection("connected")
+          // إعادة الاتصال = توكن بلا صلاحية نشر → المنع الافتراضي يعود
+          setMicGranted(readRoomMicrophonePermission(handle.room))
+          setMicOn(false)
         })
         handle.room.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
           if (!mountedRef.current) return
+          setMicGranted(false)
+          setMicOn(false)
           // LIVE-9C — إخراج بقرار المعلم: حالة نهائية، ولا تُعالَج كإعادة اتصال
           if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
             setRemovedByHost(true)
@@ -154,6 +188,30 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
             return
           }
           setConnection((c) => (c === "reconnecting" ? "reconnecting" : "disconnected"))
+        })
+
+        // LIVE-9E — حالة الزر تتبع النشر الفعلي، لا نية المستخدم
+        handle.room.on(RoomEvent.LocalTrackPublished, (pub) => {
+          if (mountedRef.current && pub.source === Track.Source.Microphone) {
+            setMicOn(true)
+          }
+        })
+        handle.room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+          if (mountedRef.current && pub.source === Track.Source.Microphone) {
+            setMicOn(false)
+          }
+        })
+
+        // LIVE-9E — الصلاحية الحالية ثم كل تغيّر لاحق عليها
+        setMicGranted(readRoomMicrophonePermission(handle.room))
+        detachMicRef.current = bindMicrophonePermission(handle.room, (granted) => {
+          if (!mountedRef.current) return
+          setMicGranted(granted)
+          if (!granted) {
+            setMicError(undefined)
+            // الخادم ألغى النشر أصلاً؛ هذا تنظيف الجهاز المحلي
+            void disableStudentMicrophone(handle.room)
+          }
         })
 
         // جودة الاتصال — حدث على مستوى الغرفة يصدر عن الناشر البعيد
@@ -196,6 +254,10 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
       mountedRef.current = false
       detachHandlersRef.current?.()
       detachHandlersRef.current = null
+      // LIVE-9E — إلغاء مستمع الصلاحيات قبل قطع الاتصال: الغرفة القديمة قد تُصدر
+      // حدثاً أخيراً، ومستمع باقٍ على غرفة مهجورة تسريبٌ لا فائدة منه
+      detachMicRef.current?.()
+      detachMicRef.current = null
       // detach المسارات البعيدة قبل قطع الاتصال
       const handle = handleRef.current
       if (handle) {
@@ -253,6 +315,29 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
         .catch(() => undefined)
     }
   }, [])
+
+  /**
+   * LIVE-9E — تبديل ميكروفون الطالب.
+   *
+   * لا نضبط micOn عند النجاح: حدث LocalTrackPublished/Unpublished هو من يضبطه،
+   * فتبقى الشاشة مطابقة للنشر الفعلي ولو ألغى الخادم المسار من طرفه.
+   */
+  const toggleMic = useCallback(async () => {
+    const room = handleRef.current?.room
+    if (!room) return
+    setMicBusy(true)
+    setMicError(undefined)
+    try {
+      if (micOn) {
+        await disableStudentMicrophone(room)
+      } else {
+        const result = await enableStudentMicrophone(room)
+        if (!result.ok) setMicError(result.message)
+      }
+    } finally {
+      if (mountedRef.current) setMicBusy(false)
+    }
+  }, [micOn])
 
   // ─── retry داخلي بدون reload ───────────────────────────────────────────────
   const retryConnection = useCallback(() => {
@@ -389,6 +474,42 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           </div>
         )}
       </div>
+
+      {/* LIVE-9E — شريط التحدث: يظهر بظهور الصلاحية ويختفي بسحبها.
+          لا زر كاميرا ولا مشاركة شاشة ولا نشر بيانات — الطالب ناشر صوت فقط. */}
+      {micGranted && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 px-4 py-3">
+          <p className="text-[11px] font-bold text-slate-300" aria-live="polite">
+            {micOn ? "ميكروفونك مفتوح — الجميع يسمعك" : "منحك المعلم صلاحية التحدث"}
+          </p>
+          <Button
+            variant={micOn ? "danger" : "outline"}
+            size="sm"
+            onClick={() => void toggleMic()}
+            disabled={micBusy}
+            className="flex items-center gap-1.5"
+          >
+            {micBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : micOn ? (
+              <MicOff className="h-4 w-4" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
+            {micOn ? "إيقاف الميكروفون" : "تشغيل الميكروفون"}
+          </Button>
+        </div>
+      )}
+
+      {micError && (
+        <p
+          className="flex items-center gap-1.5 bg-rose-950 px-4 py-2 text-[11px] font-bold text-rose-300"
+          role="alert"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {micError}
+        </p>
+      )}
 
       {/* زر تفعيل الصوت عند حجب المتصفح للتشغيل التلقائي */}
       {needsUnmute && (

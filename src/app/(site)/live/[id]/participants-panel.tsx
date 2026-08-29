@@ -7,11 +7,17 @@
 //
 // كل قرار صلاحية على السيرفر: هذه اللوحة لا تحمل أي منطق تصريحي — تُرسل userId
 // فقط، والسيرفر هو من يتحقق من الملكية والدور ومن أن السجل يتبع هذه الجلسة.
+//
+// LIVE-9E — منح/سحب الميكروفون و«كتم الجميع». الحالة المعروضة تأتي من حضور
+// LiveKit عبر مسار المشاركين، لا من حالة محلية: الأزرار تطلب، والسيرفر يقرر،
+// والاستعلام التالي هو ما يُثبِّت النتيجة على الشاشة.
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   AlertCircle,
   Loader2,
+  Mic,
+  MicOff,
   UserCheck,
   UserMinus,
   Users,
@@ -34,6 +40,9 @@ interface RosterRow {
   presence: ParticipantPresence
   joinedAtMs: number | null
   unknown: boolean
+  /** null = تعذّر قراءة الحالة من خدمة البث (LIVE-9E) */
+  micGranted: boolean | null
+  micActive: boolean | null
 }
 
 interface ParticipantsPanelProps {
@@ -73,6 +82,8 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
   /** تعذّر الوصول إلى خدمة البث — القائمة تبقى ظاهرة بحالة اتصال غير معروفة */
   const [roomReachable, setRoomReachable] = useState(true)
   const [busyUserId, setBusyUserId] = useState<string>()
+  /** «كتم الجميع» جارٍ — نداء واحد يشمل كل الصفوف فلا يصلح busyUserId له */
+  const [mutingAll, setMutingAll] = useState(false)
   /** الصف الذي طُلب إخراجه وينتظر تأكيداً — تأكيد داخل الصف بلا نافذة متصفح */
   const [confirmingUserId, setConfirmingUserId] = useState<string>()
   const [errorMsg, setErrorMsg] = useState<string>()
@@ -218,9 +229,85 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
     [sessionId]
   )
 
+  /**
+   * منح/سحب صلاحية الميكروفون لطالب واحد (LIVE-9E).
+   *
+   * لا نُثبِّت الحالة محلياً كما في القبول: صلاحية الميكروفون تعيش في LiveKit
+   * وحده، والاستعلام الدوري يقرأها من هناك. نعرض ما أعاده السيرفر فقط —
+   * ولو لم يُطبَّق المنح (طالب غير متصل) فـ micGranted يعود false مع تحذير.
+   */
+  const micAction = useCallback(
+    async (userId: string, action: "grant" | "revoke") => {
+      setBusyUserId(userId)
+      setErrorMsg(undefined)
+      setWarningMsg(undefined)
+      try {
+        const res = await fetch(`/api/live/${sessionId}/microphone`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, action }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setErrorMsg(
+            typeof data.error === "string"
+              ? data.error
+              : "تعذر تحديث صلاحية الميكروفون."
+          )
+          return
+        }
+        const granted = data.micGranted === true
+        setRows((current) =>
+          current.map((row) =>
+            row.userId === userId
+              ? { ...row, micGranted: granted, micActive: granted ? row.micActive : false }
+              : row
+          )
+        )
+        if (typeof data.warning === "string") setWarningMsg(data.warning)
+      } catch {
+        setErrorMsg("تعذر الاتصال بالخادم. حاول مرة أخرى.")
+      } finally {
+        setBusyUserId(undefined)
+      }
+    },
+    [sessionId]
+  )
+
+  /** سحب الميكروفون من كل طالب متصل يملكه — لا يشمل المعلم ولا الأدمن */
+  const muteAll = useCallback(async () => {
+    setMutingAll(true)
+    setErrorMsg(undefined)
+    setWarningMsg(undefined)
+    try {
+      const res = await fetch(`/api/live/${sessionId}/microphone/mute-all`, {
+        method: "POST",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setErrorMsg(
+          typeof data.error === "string" ? data.error : "تعذر كتم الجميع."
+        )
+        return
+      }
+      setRows((current) =>
+        current.map((row) => ({ ...row, micGranted: false, micActive: false }))
+      )
+      if (typeof data.warning === "string") setWarningMsg(data.warning)
+      // فشل جزئي؟ الاستعلام التالي يُظهر من بقي يملك الصلاحية فعلاً
+      if (typeof data.failed === "number" && data.failed > 0) void load()
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم. حاول مرة أخرى.")
+    } finally {
+      setMutingAll(false)
+    }
+  }, [sessionId, load])
+
+  /** زر «كتم الجميع» بلا هدف = زر مضلِّل، فيُخفى حتى يوجد من يُكتم */
+  const anyMicGranted = rows.some((row) => row.micGranted === true)
+
   // جلسة برابط خارجي (YouTube/Zoom/Meet) → لا غرفة LiveKit ولا لوحة
   if (loaded && !managed) return null
-
   return (
     <div className="mb-6 rounded-2xl border-2 border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -233,12 +320,30 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
             </span>
           )}
         </h3>
-        {roomReachable && connectedCount > 0 && (
-          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            متصل الآن: {connectedCount}
-          </span>
-        )}
+        <div className="flex items-center gap-2.5">
+          {roomReachable && connectedCount > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              متصل الآن: {connectedCount}
+            </span>
+          )}
+          {roomReachable && anyMicGranted && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void muteAll()}
+              disabled={mutingAll}
+              className="flex items-center gap-1.5 border-rose-200 text-rose-600 hover:bg-rose-50"
+            >
+              {mutingAll ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MicOff className="h-4 w-4" />
+              )}
+              كتم الجميع
+            </Button>
+          )}
+        </div>
       </div>
 
       {!roomReachable && loaded && (
@@ -263,6 +368,13 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
             const isKicked = row.admission === "kicked"
             const isBusy = busyUserId === row.userId
             const isConfirming = confirmingUserId === row.userId
+            // الميكروفون يُدار للمتصلين وحدهم: المنح لطالب غير متصل لا يُخزَّن
+            const canMic =
+              !isKicked &&
+              !row.unknown &&
+              roomReachable &&
+              row.presence === "connected"
+            const micGranted = row.micGranted === true
 
             return (
               <li
@@ -283,6 +395,18 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
                         تم إخراجه
                       </span>
                     )}
+                    {!isKicked && micGranted && (
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                          row.micActive
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-sky-50 text-sky-700"
+                        }`}
+                      >
+                        <Mic className="h-3 w-3" aria-hidden="true" />
+                        {row.micActive ? "يتحدث الآن" : "مسموح بالتحدث"}
+                      </span>
+                    )}
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
                     {isKicked ? "لا يمكنه الدخول حتى تعيد قبوله" : PRESENCE_LABELS[row.presence]}
@@ -294,6 +418,30 @@ export function ParticipantsPanel({ sessionId, revision }: ParticipantsPanelProp
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
+                  {canMic && !isConfirming && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void micAction(row.userId, micGranted ? "revoke" : "grant")
+                      }
+                      disabled={isBusy || mutingAll}
+                      className={`flex items-center gap-1.5 ${
+                        micGranted
+                          ? "border-rose-200 text-rose-600 hover:bg-rose-50"
+                          : "border-sky-200 text-sky-700 hover:bg-sky-50"
+                      }`}
+                    >
+                      {isBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : micGranted ? (
+                        <MicOff className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )}
+                      {micGranted ? "سحب الميكروفون" : "منح الميكروفون"}
+                    </Button>
+                  )}
                   {isKicked ? (
                     <Button
                       variant="outline"

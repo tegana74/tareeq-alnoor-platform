@@ -274,6 +274,12 @@ export type KickTarget = {
   user: { role: string; teacherId: string | null } | null
 }
 
+export type ModerationTarget = {
+  exists: boolean
+  status: AdmissionState
+  user: { role: string; teacherId: string | null } | null
+}
+
 /**
  * السجل المستهدَف بالطرد + دور صاحبه.
  *
@@ -288,6 +294,28 @@ export async function readKickTarget(
   sessionId: string,
   targetUserId: string
 ): Promise<KickTarget> {
+  const [row, targetUser] = await Promise.all([
+    prisma.liveSessionAdmission.findUnique({
+      where: { sessionId_userId: { sessionId, userId: targetUserId } },
+      select: { status: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true, teacherId: true },
+    }),
+  ])
+
+  return {
+    exists: row !== null,
+    status: toAdmissionState(row),
+    user: targetUser,
+  }
+}
+
+export async function readModerationTarget(
+  sessionId: string,
+  targetUserId: string
+): Promise<ModerationTarget> {
   const [row, targetUser] = await Promise.all([
     prisma.liveSessionAdmission.findUnique({
       where: { sessionId_userId: { sessionId, userId: targetUserId } },

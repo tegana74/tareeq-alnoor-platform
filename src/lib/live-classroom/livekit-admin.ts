@@ -18,8 +18,9 @@ import {
   ParticipantInfo_State,
   RoomServiceClient,
   ServerError,
+  TrackSource,
 } from "livekit-server-sdk"
-import type { ParticipantInfo } from "livekit-server-sdk"
+import type { ParticipantInfo, ParticipantPermission } from "livekit-server-sdk"
 import { toJoinedAtMs, type RoomParticipantSnapshot } from "./participants"
 
 if (typeof window !== "undefined") {
@@ -80,6 +81,36 @@ function isNotFound(error: unknown): boolean {
   return false
 }
 
+const STUDENT_MIC_REVOKED_PERMISSION: Partial<ParticipantPermission> = {
+  canSubscribe: true,
+  canPublish: false,
+  canPublishData: false,
+  canPublishSources: [],
+}
+
+const STUDENT_MIC_GRANTED_PERMISSION: Partial<ParticipantPermission> = {
+  canSubscribe: true,
+  canPublish: true,
+  canPublishData: false,
+  canPublishSources: [TrackSource.MICROPHONE],
+}
+
+function hasMicrophonePublishPermission(
+  permission: ParticipantPermission | undefined
+): boolean {
+  if (!permission?.canPublish) return false
+  const sources = permission.canPublishSources ?? []
+  return sources.includes(TrackSource.MICROPHONE)
+}
+
+function isActivelyPublishingMicrophone(participant: ParticipantInfo): boolean {
+  return participant.tracks.some(
+    (track) =>
+      track.source === TrackSource.MICROPHONE &&
+      track.muted === false
+  )
+}
+
 /**
  * ParticipantInfo → لقطة محيَّدة.
  *
@@ -101,6 +132,8 @@ export function toRoomParticipantSnapshot(
     identity: participant.identity,
     connected: participant.state !== ParticipantInfo_State.DISCONNECTED,
     joinedAtMs,
+    micGranted: hasMicrophonePublishPermission(participant.permission),
+    micActive: isActivelyPublishingMicrophone(participant),
   }
 }
 
@@ -150,5 +183,46 @@ export async function removeRoomParticipant(
     if (isNotFound(error)) return { removed: true }
     console.error("[LIVEKIT_ADMIN] removeParticipant failed")
     return { removed: false }
+  }
+}
+
+export type MicrophonePermissionUpdateResult = {
+  applied: boolean
+  reason?: "not_connected" | "rpc_failed"
+}
+
+export async function grantParticipantMicrophone(
+  roomName: string,
+  identity: string
+): Promise<MicrophonePermissionUpdateResult> {
+  return updateParticipantPermission(roomName, identity, STUDENT_MIC_GRANTED_PERMISSION)
+}
+
+export async function revokeParticipantMicrophone(
+  roomName: string,
+  identity: string
+): Promise<MicrophonePermissionUpdateResult> {
+  return updateParticipantPermission(roomName, identity, STUDENT_MIC_REVOKED_PERMISSION)
+}
+
+async function updateParticipantPermission(
+  roomName: string,
+  identity: string,
+  permission: Partial<ParticipantPermission>
+): Promise<MicrophonePermissionUpdateResult> {
+  let service: RoomServiceClient
+  try {
+    service = createRoomService()
+  } catch {
+    return { applied: false, reason: "rpc_failed" }
+  }
+
+  try {
+    await service.updateParticipant(roomName, identity, { permission })
+    return { applied: true }
+  } catch (error) {
+    if (isNotFound(error)) return { applied: false, reason: "not_connected" }
+    console.error("[LIVEKIT_ADMIN] updateParticipant failed")
+    return { applied: false, reason: "rpc_failed" }
   }
 }
