@@ -270,7 +270,7 @@ export default async function Home() {
               {audienceBadge}
             </span>
             <h1 className="text-4xl font-black leading-tight text-navy sm:text-5xl lg:text-6xl">
-              منصة <span className="text-gradient-gold">{APP_NAME}</span>
+              <span className="text-gradient-gold">{APP_NAME}</span>
               <br />
               للفهم والتدريب و<span className="text-gradient-gold">المتابعة</span>
             </h1>

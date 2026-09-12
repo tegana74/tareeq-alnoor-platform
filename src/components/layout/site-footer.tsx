@@ -38,7 +38,7 @@ export function SiteFooter() {
         <div className="space-y-4">
           <Logo textClassName="text-white" iconClassName="shadow-amber-500/50" />
           <p className="text-sm leading-7 text-slate-300">
-            منصة {APP_NAME} التعليمية — أفضل المدرسين، محاضرات وفيديوهات، واجبات وامتحانات
+            {APP_NAME} — أفضل المدرسين، محاضرات وفيديوهات، واجبات وامتحانات
             للمرحلة الثانوية. ذاكر في أي وقت وفي أي مكان.
           </p>
           <div className="flex items-center gap-2">
