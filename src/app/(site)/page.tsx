@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { prisma } from "@/lib/prisma"
 import { Button } from "@/components/ui/button"
 import { CourseCard } from "@/components/ui/course-card"
@@ -257,8 +258,10 @@ export default async function Home() {
         <div className="container mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20">
           {/* العمود الأيمن: النصوص */}
           <div className="relative space-y-6">
-            <h1 className="text-4xl font-bold text-white md:text-5xl">
-              منصة طريق النور التعليمية
+            <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl">
+              <span className="block">منصة</span>
+              <span className="block text-primary">طريق النور</span>
+              <span className="block">التعليمية</span>
             </h1>
             <p className="max-w-xl text-lg leading-9 text-gray-300">
               منصتك المتكاملة للفهم والتدريب والمتابعة للمرحلتين الإعدادية والثانوية.
@@ -278,15 +281,17 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* العمود الأيسر: عنصر نائب (Placeholder) بخلفية متدرجة */}
-          <div
-            className="relative hidden aspect-[4/3] w-full overflow-hidden rounded-3xl bg-gradient-to-br from-primary-400 via-orange-500 to-amber-500 shadow-2xl shadow-primary-500/30 lg:flex"
-            aria-hidden="true"
-          >
-            <div className="m-auto flex flex-col items-center gap-3 text-white/90">
-              <GraduationCap className="h-24 w-24" strokeWidth={1.6} />
-              <span className="text-xl font-black">{APP_NAME}</span>
-            </div>
+          {/* العمود الأيسر: صورة بورتريه */}
+          <div className="mx-auto hidden aspect-[4/3] w-full max-w-lg lg:block">
+            <Image
+              src="/images/hero-profile-new.jpg"
+              alt="طريق النور — منصة تعليمية للمرحلتين الإعدادية والثانوية"
+              width={1200}
+              height={900}
+              priority
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="h-full w-full rounded-2xl object-cover shadow-2xl shadow-primary-500/30 ring-1 ring-white/10"
+            />
           </div>
         </div>
       </section>

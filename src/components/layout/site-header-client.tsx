@@ -111,7 +111,7 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Logo textClassName="hidden sm:inline" />
+        <Logo stacked textClassName="hidden sm:inline" />
 
         <nav aria-label="التنقل الرئيسي" className="hidden items-center gap-1 xl:flex xl:gap-1.5">
           {NAV_ITEMS.map((item) => {
@@ -218,7 +218,7 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
             />
             <div className="absolute inset-y-0 start-0 flex w-[85%] max-w-xs flex-col bg-card shadow-2xl animate-fade-up">
               <div className="flex h-16 items-center justify-between border-b border-border px-4">
-                <Logo textClassName="hidden sm:inline" />
+                <Logo stacked textClassName="hidden sm:inline" />
                 <button
                   ref={closeRef}
                   type="button"
