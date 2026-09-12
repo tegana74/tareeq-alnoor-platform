@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { CourseCard } from "@/components/ui/course-card"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { PwaInstallButton } from "@/components/pwa-install"
 import {
   ArrowLeft,
   BarChart3,
@@ -13,7 +12,6 @@ import {
   ClipboardList,
   GraduationCap,
   Library,
-  PlayCircle,
   Radio,
   Sparkles,
   Trophy,
@@ -242,123 +240,60 @@ export default async function Home() {
     teacherImageShape,
     teacherImageSize,
     coursesCountBySubject,
-    stats,
-    audienceBadge,
   } = await getHomeData()
 
   const imgShape = teacherImageShape === "rounded" ? "rounded-2xl" : "rounded-full"
   const imgSize = teacherImageSize === "lg" ? "h-28 w-28" : teacherImageSize === "sm" ? "h-16 w-16" : "h-20 w-20"
   const imgText = teacherImageSize === "lg" ? "text-3xl" : teacherImageSize === "sm" ? "text-lg" : "text-2xl"
-  const previewCourse = courses[0]
-  const previewContentTotal =
-    courses.length > 0
-      ? courses.reduce((sum, c) => sum + c._count.videos + c._count.books + c._count.exams, 0)
-      : 0
 
   return (
     <div className="overflow-hidden">
       {/* ===== A. Hero ===== */}
-      <section className="relative">
+      <section id="hero" className="relative bg-navy">
         <div
-          className="absolute top-1/2 left-1/2 -z-10 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-500/10 blur-[100px]"
+          className="absolute top-1/2 left-1/2 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-500/20 blur-[120px]"
           aria-hidden="true"
         />
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:py-20">
-          <div className="space-y-7 animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-4 py-1.5 text-sm font-bold text-primary-700">
-              <GraduationCap className="h-4 w-4" aria-hidden="true" />
-              {audienceBadge}
-            </span>
-            <h1 className="text-4xl font-black leading-tight text-navy sm:text-5xl lg:text-6xl">
-              <span className="text-gradient-gold">{APP_NAME}</span>
-              <br />
-              للفهم والتدريب و<span className="text-gradient-gold">المتابعة</span>
+        <div className="container mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20">
+          {/* العمود الأيمن: النصوص */}
+          <div className="relative space-y-6">
+            <h1 className="text-4xl font-bold text-white md:text-5xl">
+              منصة طريق النور التعليمية
             </h1>
-            <p className="max-w-xl text-lg leading-9 text-muted-foreground">
-              كورسات منظمة مع أفضل المدرسين، اختبارات وبنك أسئلة شامل، ومتابعة دقيقة لنتائجك —
-              كل ده في مكان واحد، وفي أي وقت ومن أي جهاز.
+            <p className="max-w-xl text-lg leading-9 text-gray-300">
+              منصتك المتكاملة للفهم والتدريب والمتابعة للمرحلتين الإعدادية والثانوية.
             </p>
-            <div className="flex flex-wrap items-center gap-4">
-              <Button href="/courses" size="lg">
-                ابدأ رحلتك التعليمية
-                <ArrowLeft className="h-5 w-5" />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button href="/register" size="lg">
+                ابدأ رحلتك الآن
               </Button>
-              <Button href="/register" size="lg" variant="outline">
-                إنشاء حساب مجاني
+              <Button
+                href="/courses"
+                size="lg"
+                variant="outline"
+                className="!border-white/30 !bg-transparent !text-white hover:!bg-white/10"
+              >
+                تصفح الكورسات
               </Button>
-              <PwaInstallButton variant="hero" />
             </div>
-            <dl className="flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-border pt-5">
-              {[
-                { label: "كورس نشط", value: stats.courseCount },
-                { label: "مادة دراسية", value: stats.subjectsCount },
-                { label: "صف دراسي", value: stats.yearsCount },
-                { label: "مدرس", value: stats.teacherCount },
-              ].map((s) => (
-                <div key={s.label}>
-                  <dt className="sr-only">{s.label}</dt>
-                  <dd className="text-2xl font-black text-navy">{s.value}</dd>
-                  <dd className="text-xs font-bold text-muted-foreground">{s.label}</dd>
-                </div>
-              ))}
-            </dl>
           </div>
 
-          {previewCourse && (
-            <div className="relative hidden lg:block">
-              <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-br from-primary-100 via-primary-50 to-transparent blur-2xl" aria-hidden="true" />
-              <div className="relative mx-auto max-w-md space-y-4">
-                <Card className="rounded-3xl p-6 shadow-xl">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      من كورساتنا المميزة
-                    </span>
-                    {previewCourse._count.videos > 0 && (
-                      <Badge variant="success">
-                        <PlayCircle className="me-1 h-3.5 w-3.5" />
-                        {previewCourse._count.videos} محاضرة
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-lg font-extrabold text-navy">{previewCourse.name}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <UserRound className="h-4 w-4 text-primary-600" aria-hidden="true" />
-                    {previewCourse.teacher.name}
-                    {previewCourse.subject?.name ? ` — ${previewCourse.subject.name}` : ""}
-                  </p>
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    {[
-                      { icon: PlayCircle, label: "محاضرة", value: previewCourse._count.videos },
-                      { icon: Library, label: "ملف", value: previewCourse._count.books },
-                      { icon: ClipboardList, label: "اختبار", value: previewCourse._count.exams },
-                    ].map((m) => (
-                      <div key={m.label} className="rounded-xl bg-muted/30 p-2.5">
-                        <m.icon className="mx-auto h-4 w-4 text-primary-600" aria-hidden="true" />
-                        <p className="mt-1 text-sm font-black text-navy">{m.value}</p>
-                        <p className="text-[11px] text-muted-foreground">{m.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <Button href="/courses" size="sm" className="mt-5 w-full">
-                    تصفح الكورسات
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                </Card>
-                <div className="ms-6 flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-md">
-                  <p className="text-sm font-bold text-navy">
-                    {previewContentTotal} عنصر محتوى في الكورسات المميزة
-                  </p>
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-strong" aria-hidden="true" />
-                </div>
-              </div>
+          {/* العمود الأيسر: عنصر نائب (Placeholder) بخلفية متدرجة */}
+          <div
+            className="relative hidden aspect-[4/3] w-full overflow-hidden rounded-3xl bg-gradient-to-br from-primary-400 via-orange-500 to-amber-500 shadow-2xl shadow-primary-500/30 lg:flex"
+            aria-hidden="true"
+          >
+            <div className="m-auto flex flex-col items-center gap-3 text-white/90">
+              <GraduationCap className="h-24 w-24" strokeWidth={1.6} />
+              <span className="text-xl font-black">{APP_NAME}</span>
             </div>
-          )}
+          </div>
         </div>
       </section>
 
       {/* ===== B. Academic Stages ===== */}
       <section id="stages" className="scroll-mt-20 py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <SectionHeading
             eyebrow="مراحل دراسية"
             title="اختر صفك الدراسي"
@@ -373,7 +308,7 @@ export default async function Home() {
                   <GraduationCap className="h-4 w-4" aria-hidden="true" />
                   {stage}
                 </h3>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {years.map((y) => (
                     <Link
                       key={y.id}
@@ -400,7 +335,7 @@ export default async function Home() {
       </section>
       {/* ===== C. Subjects ===== */}
       <section id="subjects" className="scroll-mt-20 bg-card py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <SectionHeading
             eyebrow="المواد الدراسية"
             title="مواد طريق النور"
@@ -497,14 +432,14 @@ export default async function Home() {
 
       {/* ===== F. Why Tareeq Alnoor ===== */}
       <section id="why" className="scroll-mt-20 py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <SectionHeading
             center
             eyebrow="لماذا طريق النور؟"
             title="كل اللي محتاجه للتفوق في مكان واحد"
             desc="أدوات تعليمية متكاملة تعمل معاً: من الشرح إلى التدريب إلى المتابعة"
           />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {WHY_ITEMS.map((f) => (
               <Card key={f.title} className="p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                 <span className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${f.color}`}>
@@ -520,12 +455,12 @@ export default async function Home() {
 
       {/* ===== G. How It Works ===== */}
       <section id="how" className="scroll-mt-20 bg-navy py-16 text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <div className="mb-10 text-center">
             <h2 className="text-2xl font-black sm:text-3xl">إزاي تبدأ مع {APP_NAME}؟</h2>
             <p className="mt-2 text-slate-300">٤ خطوات بسيطة تفصلك عن التفوق</p>
           </div>
-          <ol className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <ol className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s) => (
               <li key={s.n}>
                 <div className="h-full rounded-2xl border border-white/10 bg-white/5 p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary-500/50 hover:bg-white/10">
@@ -543,13 +478,13 @@ export default async function Home() {
 
       {/* ===== H. Student / Parent Value ===== */}
       <section id="value" className="scroll-mt-20 py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <SectionHeading
             center
             eyebrow="لمن هذه المنصة؟"
             title="قيمة حقيقية للطالب وولي الأمر"
           />
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card className="p-8">
               <h3 className="mb-5 flex items-center gap-2.5 text-xl font-black text-navy">
                 <UserRound className="h-6 w-6 text-primary-600" aria-hidden="true" />
@@ -598,7 +533,7 @@ export default async function Home() {
 
       {/* ===== I. FAQ ===== */}
       <section id="faq" className="scroll-mt-20 bg-card py-14">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        <div className="container mx-auto px-4 sm:px-6 max-w-3xl">
           <SectionHeading center eyebrow="أسئلة شائعة" title="أسئلة بتتكرر كتير" />
           <div className="space-y-3">
             {FAQ_ITEMS.map((item) => (

@@ -111,9 +111,9 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Logo />
+        <Logo textClassName="hidden sm:inline" />
 
-        <nav aria-label="التنقل الرئيسي" className="hidden items-center gap-1 md:flex">
+        <nav aria-label="التنقل الرئيسي" className="hidden items-center gap-1 xl:flex xl:gap-1.5">
           {NAV_ITEMS.map((item) => {
             const active = item.href === activeHref
             return (
@@ -131,9 +131,15 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
         </nav>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="hidden md:inline-flex">
+          <span className="hidden xl:inline-flex">
             <PwaInstallButton variant="small" />
           </span>
+          {!role && (
+            <Button href="/login" variant="ghost" size="sm" className="xl:hidden">
+              <LogIn className="h-4 w-4" />
+              تسجيل الدخول
+            </Button>
+          )}
           <ThemeToggle />
 
           <button
@@ -145,7 +151,7 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
             aria-label="فتح القائمة"
             className={classNames(
               iconLinkBase,
-              "text-slate-500 hover:bg-slate-100 hover:text-primary-600 md:hidden"
+              "text-slate-500 hover:bg-slate-100 hover:text-primary-600 xl:hidden"
             )}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -153,7 +159,7 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
             </svg>
           </button>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-2 xl:flex">
             {role && (
               <>
                 {dashboard && (
@@ -204,7 +210,7 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
       </div>
       {menuOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="قائمة التنقل">
+          <div className="fixed inset-0 z-[60] xl:hidden" role="dialog" aria-modal="true" aria-label="قائمة التنقل">
             <div
               className="absolute inset-0 bg-black/40"
               onClick={closeMenu}
@@ -212,7 +218,7 @@ export function SiteHeaderClient({ role, unread }: SiteHeaderClientProps) {
             />
             <div className="absolute inset-y-0 start-0 flex w-[85%] max-w-xs flex-col bg-card shadow-2xl animate-fade-up">
               <div className="flex h-16 items-center justify-between border-b border-border px-4">
-                <Logo />
+                <Logo textClassName="hidden sm:inline" />
                 <button
                   ref={closeRef}
                   type="button"
