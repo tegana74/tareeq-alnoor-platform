@@ -89,6 +89,8 @@ export default async function LiveSessionPage({ params }: LivePageProps) {
         startAt={session.startAt.toISOString()}
         durationMinutes={session.durationMinutes}
         initialAdmission={initialAdmission}
+        // SMART-WB-1B — الهوية من الجلسة على الخادم، لا من العميل
+        currentUserId={user.id}
       />
     </div>
   )

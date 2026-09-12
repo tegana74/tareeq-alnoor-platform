@@ -3,11 +3,14 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import {
   Bell,
+  BookOpen,
   CalendarClock,
   CheckCircle2,
+  ClipboardCheck,
   GraduationCap,
   PlayCircle,
-  Target,
+  Rocket,
+  RotateCcw,
   TrendingDown,
   Wallet,
 } from "lucide-react"
@@ -30,12 +33,17 @@ function pct(score: number | string, total: number | string) {
   return t > 0 ? Math.round((Number(score) / t) * 100) : 0
 }
 
+type TodayTask =
+  | { kind: "continue"; eyebrow: string; title: string; courseName: string; percent: number | null; href: string }
+  | { kind: "review"; eyebrow: string; title: string; courseName: string; percent: number; href: string }
+  | { kind: "start"; eyebrow: string; title: string; courseName: string; percent: null; href: string }
+
 export default async function DashboardPage() {
   const user = await getCurrentUser()
   if (!user) notFound()
   if (user.role !== "STUDENT") notFound()
 
-  const [subscriptions, continueView, examAttempts, upcomingLive, notifications] = await Promise.all([
+  const [subscriptions, continueView, examAttempts, upcomingLive, notifications, examTotal] = await Promise.all([
     prisma.subscription.findMany({
       where: { userId: user.id, status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
       select: {
@@ -82,8 +90,14 @@ export default async function DashboardPage() {
         finishedAt: true,
         exam: {
           select: {
+            id: true,
             title: true,
-            section: { select: { course: { select: { name: true, subject: { select: { name: true } } } } } },
+            section: {
+              select: {
+                id: true,
+                course: { select: { id: true, name: true, subject: { select: { name: true } } } },
+              },
+            },
           },
         },
         answers: {
@@ -113,6 +127,7 @@ export default async function DashboardPage() {
       take: 3,
       select: { id: true, title: true, body: true, link: true, isRead: true, createdAt: true },
     }),
+    prisma.examAttempt.count({ where: { userId: user.id, status: { in: ["graded", "submitted"] } } }),
   ])
 
   // ===== تقدم الكورسات — batch فقط، بدون N+1 =====
@@ -155,26 +170,73 @@ export default async function DashboardPage() {
     }
   })
 
-  // ===== مهمة اليوم — سلم واقعي من بيانات فعلية =====
-  const todayTask = continueView
+  // ===== مهمة اليوم — سلم أولويات: استكمل ← راجع أخطاءك ← ابدأ التالي =====
+  const PASS_PCT = 50
+  const failedAttempt = examAttempts.find((a) => {
+    const t = Number(a.totalScore)
+    return t > 0 && pct(Number(a.score), t) < PASS_PCT && a.exam && a.exam.section?.course
+  })
+
+  const nextLesson =
+    !continueView && !failedAttempt && myCourses.length > 0
+      ? await prisma.course.findFirst({
+          where: { id: myCourses[0].id },
+          select: {
+            sections: {
+              select: {
+                id: true,
+                order: true,
+                videos: {
+                  select: {
+                    id: true,
+                    title: true,
+                    order: true,
+                    videoViews: { where: { userId: user.id }, select: { isCompleted: true } },
+                  },
+                  orderBy: { order: "asc" },
+                },
+              },
+              orderBy: { order: "asc" },
+            },
+          },
+        })
+      : null
+
+  const firstUnfinished =
+    nextLesson?.sections
+      .flatMap((s) => s.videos.map((v) => ({ sectionId: s.id, video: v })))
+      .find(({ video }) => !video.videoViews.some((vv) => vv.isCompleted)) ?? null
+
+  const todayTask: TodayTask | null = continueView
     ? {
-        kind: "continue" as const,
-        eyebrow: "تابع من حيث توقفت",
+        kind: "continue",
+        eyebrow: "استكمِل تقدمك",
         title: continueView.video.title,
         courseName: continueView.video.section.course.name,
         percent: Math.min(continueView.progress, 100),
         href: `/courses/${continueView.video.section.course.id}/sections/${continueView.video.section.id}/video/${continueView.video.id}`,
       }
-    : myCourses.length > 0
+    : failedAttempt && failedAttempt.exam!.section?.course
       ? {
-          kind: "start" as const,
-          eyebrow: "مهمتك القادمة",
-          title: `ابدأ أول درس في كورس ${myCourses[0].name}`,
-          courseName: myCourses[0].name,
-          percent: null,
-          href: `/courses/${myCourses[0].id}/sections`,
+          kind: "review",
+          eyebrow: "راجِع أخطاءك",
+          title: `راجع أخطاءك في اختبار ${failedAttempt.exam!.title}`,
+          courseName: failedAttempt.exam!.section.course.name,
+          percent: pct(Number(failedAttempt.score), Number(failedAttempt.totalScore)),
+          href: `/courses/${failedAttempt.exam!.section.course.id}/sections/${failedAttempt.exam!.section.id}/exam/${failedAttempt.exam!.id}/result/${failedAttempt.id}`,
         }
-      : null
+      : myCourses.length > 0
+        ? {
+            kind: "start",
+            eyebrow: "مهمتك القادمة",
+            title: `ابدأ الدرس التالي في كورس ${myCourses[0].name}`,
+            courseName: myCourses[0].name,
+            percent: null,
+            href: firstUnfinished
+              ? `/courses/${myCourses[0].id}/sections/${firstUnfinished.sectionId}/video/${firstUnfinished.video.id}`
+              : `/courses/${myCourses[0].id}/sections`,
+          }
+        : null
 
   // ===== آخر النتائج =====
   const recentResults = examAttempts.slice(0, 4).map((a) => ({
@@ -210,11 +272,45 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       {/* ===== A. Welcome ===== */}
       <header className="mb-8">
-        <h1 className="text-2xl font-black text-navy sm:text-3xl">
+        <h1 className="text-2xl font-black text-card-foreground sm:text-3xl">
           {firstName ? `أهلاً يا ${firstName} 👋` : "أهلاً بك 👋"}
         </h1>
         <p className="mt-2 text-muted-foreground">ماذا ستذاكر اليوم؟</p>
       </header>
+
+      {/* ===== A2. Stats strip ===== */}
+      <section aria-label="إحصائياتك" className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          {
+            label: "كورسات نشطة",
+            value: myCourses.length,
+            icon: BookOpen,
+            iconClass: "bg-primary-50 text-primary dark:bg-primary-500/15 dark:text-primary-300",
+          },
+          {
+            label: "امتحانات منجزة",
+            value: examTotal,
+            icon: ClipboardCheck,
+            iconClass: "bg-success-50 text-success-strong",
+          },
+          {
+            label: "دروس متقنة",
+            value: completedViews.length,
+            icon: CheckCircle2,
+            iconClass: "bg-royal-50 text-royal",
+          },
+        ].map(({ label, value, icon: Icon, iconClass }) => (
+          <Card key={label} className="flex items-center gap-3.5 border-border bg-card p-4">
+            <span aria-hidden="true" className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
+              <Icon className="h-6 w-6" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-2xl font-black leading-none text-card-foreground">{value}</span>
+              <span className="mt-1 block truncate text-xs font-medium text-muted-foreground">{label}</span>
+            </span>
+          </Card>
+        ))}
+      </section>
 
       {/* ===== K. Empty dashboard ===== */}
       {myCourses.length === 0 && !continueView ? (
@@ -234,22 +330,35 @@ export default async function DashboardPage() {
           {/* ===== B. Today's task ===== */}
           {todayTask && (
             <section aria-labelledby="task-title">
-              <Card className="overflow-hidden border-primary-200 bg-card">
+              <Card className="relative overflow-hidden border-primary-300 bg-gradient-to-br from-primary-500/10 via-card to-transparent">
                 <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <p id="task-title" className="mb-2 flex items-center gap-2 text-sm font-black text-primary-600">
-                      <Target className="h-4 w-4" aria-hidden="true" />
-                      🎯 {todayTask.eyebrow}
+                      {todayTask.kind === "continue" ? (
+                        <PlayCircle className="h-4 w-4" aria-hidden="true" />
+                      ) : todayTask.kind === "review" ? (
+                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Rocket className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      {todayTask.eyebrow}
                     </p>
-                    <p className="truncate text-lg font-extrabold text-navy">{todayTask.title}</p>
+                    <p className="truncate text-lg font-extrabold text-card-foreground">{todayTask.title}</p>
                     <p className="mt-1 text-sm text-muted-foreground">{todayTask.courseName}</p>
                     {todayTask.percent !== null && (
-                      <Progress value={todayTask.percent} size="sm" className="mt-3 max-w-sm" label="تقدمك في هذا الدرس" showLabel />
+                      <Progress
+                        value={todayTask.percent}
+                        size="sm"
+                        className="mt-3 max-w-sm"
+                        label={todayTask.kind === "review" ? "نسبتك في الاختبار الأخير" : "تقدمك في هذا الدرس"}
+                        showLabel
+                        variant={todayTask.kind === "review" ? "danger" : "primary"}
+                      />
                     )}
                   </div>
                   <Button href={todayTask.href} size="lg" className="shrink-0">
                     <PlayCircle className="h-5 w-5" />
-                    {todayTask.kind === "continue" ? "متابعة الآن" : "ابدأ الآن"}
+                    ابدأ المهمة
                   </Button>
                 </div>
               </Card>
@@ -261,7 +370,7 @@ export default async function DashboardPage() {
               {/* ===== C/D. My Courses + progress ===== */}
               <section aria-labelledby="courses-title">
                 <div className="mb-5 flex items-center justify-between">
-                  <h2 id="courses-title" className="text-xl font-black text-navy">كورساتي</h2>
+                  <h2 id="courses-title" className="text-xl font-black text-card-foreground">كورساتي</h2>
                   <Button href="/courses" variant="ghost" size="sm">تصفح الكورسات</Button>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -269,14 +378,20 @@ export default async function DashboardPage() {
                     <Card key={c.id} className="flex flex-col gap-3 p-5 transition-shadow hover:shadow-md">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-extrabold text-navy">{c.name}</p>
+                          <p className="truncate font-extrabold text-card-foreground">{c.name}</p>
                           <p className="text-xs text-muted-foreground">{c.teacher}</p>
                         </div>
                         <Badge variant={c.percent >= 100 ? "success" : "primary"} size="sm">
                           {c.done}/{c.total} درس
                         </Badge>
                       </div>
-                      <Progress value={c.total > 0 ? Math.round((c.done / c.total) * 100) : 0} size="sm" label="نسبة الإكمال" showLabel />
+                      <Progress
+                          value={c.total > 0 ? Math.round((c.done / c.total) * 100) : 0}
+                          size="sm"
+                          label="نسبة الإكمال"
+                          showLabel
+                          variant={c.percent >= 100 ? "success" : "primary"}
+                        />
                       <div className="mt-auto flex items-center justify-between pt-1">
                         <span className="text-xs text-muted-foreground">
                           {c.expiresAt ? `ينتهي ${formatDateTime(c.expiresAt)}` : "اشتراك مفتوح"}
@@ -294,7 +409,7 @@ export default async function DashboardPage() {
               {recentResults.length > 0 && (
                 <section aria-labelledby="results-title">
                   <div className="mb-5 flex items-center justify-between">
-                    <h2 id="results-title" className="text-xl font-black text-navy">آخر النتائج</h2>
+                    <h2 id="results-title" className="text-xl font-black text-card-foreground">آخر النتائج</h2>
                     <Button href="/results" variant="ghost" size="sm">كل النتائج</Button>
                   </div>
                   <ul className="space-y-3">
@@ -302,7 +417,7 @@ export default async function DashboardPage() {
                       <li key={r.id}>
                         <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-navy">{r.name}</p>
+                            <p className="truncate text-sm font-bold text-card-foreground">{r.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {[r.subjectName, r.courseName, r.finishedAt ? formatDateTime(r.finishedAt) : null]
                                 .filter(Boolean)
@@ -324,7 +439,7 @@ export default async function DashboardPage() {
 
               {/* ===== F. Weak areas ===== */}
               <section aria-labelledby="weak-title">
-                <h2 id="weak-title" className="mb-5 flex items-center gap-2 text-xl font-black text-navy">
+                <h2 id="weak-title" className="mb-5 flex items-center gap-2 text-xl font-black text-card-foreground">
                   <TrendingDown className="h-5 w-5 text-danger-strong" aria-hidden="true" />
                   نقاط تحتاج مراجعة
                 </h2>
@@ -336,7 +451,7 @@ export default async function DashboardPage() {
                           href="/practice"
                           className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm transition-colors hover:border-danger-strong/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
                         >
-                          <span className="font-bold text-navy">{w.subject}</span>
+                          <span className="font-bold text-card-foreground">{w.subject}</span>
                           <span className="font-medium text-muted-foreground">{w.times} إجابة خاطئة</span>
                         </Link>
                       </li>
@@ -357,7 +472,7 @@ export default async function DashboardPage() {
             <aside className="space-y-8">
               {upcomingLive.length > 0 && (
                 <section aria-labelledby="live-title">
-                  <h2 id="live-title" className="mb-4 flex items-center gap-2 text-lg font-black text-navy">
+                  <h2 id="live-title" className="mb-4 flex items-center gap-2 text-lg font-black text-card-foreground">
                     <CalendarClock className="h-5 w-5 text-primary-600" aria-hidden="true" />
                     بث مباشر قادم
                   </h2>
@@ -365,7 +480,7 @@ export default async function DashboardPage() {
                     {upcomingLive.map(({ session }) => (
                       <li key={session.title + session.startAt.toISOString()}>
                         <Card className="p-4">
-                          <p className="truncate text-sm font-bold text-navy">{session.title}</p>
+                          <p className="truncate text-sm font-bold text-card-foreground">{session.title}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {formatDateTime(session.startAt)} · {session.durationMinutes} دقيقة · {session.teacher.name}
                           </p>
@@ -379,7 +494,7 @@ export default async function DashboardPage() {
 
               {notifications.length > 0 && (
                 <section aria-labelledby="notif-title">
-                  <h2 id="notif-title" className="mb-4 flex items-center gap-2 text-lg font-black text-navy">
+                  <h2 id="notif-title" className="mb-4 flex items-center gap-2 text-lg font-black text-card-foreground">
                     <Bell className="h-5 w-5 text-primary-600" aria-hidden="true" />
                     آخر الإشعارات
                   </h2>
@@ -388,11 +503,11 @@ export default async function DashboardPage() {
                       <li key={n.id}>
                         <Card className="p-4">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-bold text-navy">{n.title}</p>
+                            <p className="text-sm font-bold text-card-foreground">{n.title}</p>
                             {!n.isRead && <Badge variant="danger" size="sm">جديد</Badge>}
                           </div>
                           {n.body && <p className="mt-1 line-clamp-2 text-xs leading-6 text-muted-foreground">{n.body}</p>}
-                          <p className="mt-1.5 text-[11px] text-slate-400">{formatDateTime(n.createdAt)}</p>
+                          <p className="mt-1.5 text-[11px] text-muted-foreground">{formatDateTime(n.createdAt)}</p>
                         </Card>
                       </li>
                     ))}
@@ -402,18 +517,18 @@ export default async function DashboardPage() {
               )}
 
               <section aria-labelledby="sub-title">
-                <h2 id="sub-title" className="mb-4 flex items-center gap-2 text-lg font-black text-navy">
+                <h2 id="sub-title" className="mb-4 flex items-center gap-2 text-lg font-black text-card-foreground">
                   <Wallet className="h-5 w-5 text-primary-600" aria-hidden="true" />
                   الاشتراك والمحفظة
                 </h2>
                 <Card className="space-y-3 p-5">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium text-muted-foreground">اشتراكات نشطة</span>
-                    <span className="font-black text-navy">{myCourses.length}</span>
+                    <span className="font-black text-card-foreground">{myCourses.length}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium text-muted-foreground">أقرب انتهاء</span>
-                    <span className="font-bold text-navy">{nearestExpiry ? formatDateTime(nearestExpiry) : "—"}</span>
+                    <span className="font-bold text-card-foreground">{nearestExpiry ? formatDateTime(nearestExpiry) : "—"}</span>
                   </div>
                   <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
                     <span className="font-medium text-muted-foreground">رصيد المحفظة</span>

@@ -1,11 +1,10 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { startTransition, useActionState, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   AlertCircle,
-  CheckCircle2,
   FileUp,
   Import,
   Loader2,
@@ -15,6 +14,7 @@ import { importExamAction } from "@/app/actions/exam-import"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert } from "@/components/ui/alert"
 import { Input } from "@/components/ui/field"
 
 
@@ -38,12 +38,28 @@ interface InvalidQuestion {
 const ACCEPT = ".txt,.docx,.pdf,.doc"
 const MAX_SIZE = 10 * 1024 * 1024
 
-export function ExamImportWizard({
+export function ExamImportWizard({ sectionId }: { sectionId: string }) {
+  const router = useRouter()
+  const [session, setSession] = useState(0)
+
+  // إعادة ضبط كاملة لجلسة الاستيراد (حالة النموذج + نتيجة الإجراء) عند استيراد اختبار آخر
+  function repeatImport() {
+    router.refresh()
+    setSession((s) => s + 1)
+  }
+
+  return (
+    <ExamImportWizardSession key={session} sectionId={sectionId} onRepeat={repeatImport} />
+  )
+}
+
+function ExamImportWizardSession({
   sectionId,
+  onRepeat,
 }: {
   sectionId: string
+  onRepeat: () => void
 }) {
-  const router = useRouter()
   const [step, setStep] = useState<"upload" | "preview">("upload")
   const [fileName, setFileName] = useState("")
   const [extracting, setExtracting] = useState(false)
@@ -56,7 +72,11 @@ export function ExamImportWizard({
   const [stats, setStats] = useState({ MCQ: 0, TRUE_FALSE: 0, ESSAY: 0 })
 
   const [state, formAction, importing] = useActionState(importExamAction, { ok: false } as never)
-  const imported = (state as { ok: boolean; examId?: string; importedCount?: number }).ok === true
+
+  // ===== نجاح الحفظ =====
+  const saved = state.ok ? (state as { ok: true; importedCount: number }) : null
+  // بعد الحفظ نعود تلقائياً لخطوة الرفع ونعرض رسالة النجاح
+  const activeStep = saved ? "upload" : step
 
   async function handleFile(file: File) {
     setUploadError(null)
@@ -109,31 +129,36 @@ export function ExamImportWizard({
     setQuestions((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // ===== نجاح الاستيراد =====
-  if (imported && state.ok) {
-    const s = state as { ok: true; examId: string; importedCount: number }
-    return (
-      <Card className="p-8 text-center">
-        <CheckCircle2 className="mx-auto h-12 w-12 text-success-strong" aria-hidden="true" />
-        <h3 className="mt-3 text-lg font-black text-navy">
-          تم استيراد {s.importedCount} سؤالاً بنجاح
-        </h3>
-        <div className="mt-5 flex flex-wrap justify-center gap-3">
-          <Button variant="outline" size="md" onClick={() => { setStep("upload"); router.refresh() }}>
-            استيراد اختبار آخر
-          </Button>
-          <Link href="/teacher">
-            <Button variant="primary" size="md">عرض كورساتي</Button>
-          </Link>
-        </div>
-      </Card>
-    )
+  // إرسال بيانات الاستيراد إلى الـ Server Action برمجياً (بدون form متداخل)
+  function handleImport() {
+    const fd = new FormData()
+    fd.set("sectionId", sectionId)
+    fd.set("title", title || fileName.replace(/\.[^.]+$/, ""))
+    fd.set("durationMinutes", String(duration))
+    fd.set("examType", "EXAM")
+    fd.set("isFree", "false")
+    fd.set("questions", JSON.stringify(questions))
+    startTransition(() => formAction(fd))
   }
 
+  // ===== نجاح الاستيراد =====
   return (
     <div className="space-y-6">
+      {saved !== null && (
+        <Alert variant="success" title={`تم حفظ الاختبار بنجاح — ${saved.importedCount} سؤالاً`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>تمت إضافة الاختبار إلى القسم ويمكن لطلاب الكورس دخوله الآن.</span>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={onRepeat}>استيراد اختبار آخر</Button>
+              <Link href="/teacher">
+                <Button variant="primary" size="sm">عرض كورساتي</Button>
+              </Link>
+            </div>
+          </div>
+        </Alert>
+      )}
       {/* STEP 1 — Upload */}
-      {step === "upload" && (
+      {activeStep === "upload" && (
         <>
           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border bg-card p-10 text-center transition-colors hover:border-primary-300 hover:bg-primary-50/30 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-400">
             <FileUp className="h-10 w-10 text-primary-500" aria-hidden="true" />
@@ -177,7 +202,7 @@ export function ExamImportWizard({
       )}
 
       {/* STEPS 3–5 — Preview / Edit / Import */}
-      {step === "preview" && (
+      {activeStep === "preview" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -304,18 +329,18 @@ export function ExamImportWizard({
               </p>
             )}
             {questions.length > 0 && (
-              <form action={formAction} className="ms-auto">
-                <input type="hidden" name="sectionId" value={sectionId} />
-                <input type="hidden" name="title" value={title || fileName.replace(/\.[^.]+$/, "")} />
-                <input type="hidden" name="durationMinutes" value={duration} />
-                <input type="hidden" name="examType" value="EXAM" />
-                <input type="hidden" name="isFree" value="false" />
-                <input type="hidden" name="questions" value={JSON.stringify(questions)} />
-                <Button type="submit" size="lg" disabled={importing || questions.length === 0} loading={importing}>
+              <div className="ms-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={importing || questions.length === 0}
+                  loading={importing}
+                  onClick={handleImport}
+                >
                   {!importing && <Import className="h-4 w-4" aria-hidden="true" />}
                   استيراد الاختبار ({questions.length})
                 </Button>
-              </form>
+              </div>
             )}
           </div>
         </>

@@ -10,5 +10,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    // SMART-WB-1B — مواصفات Playwright تعيش في tests/e2e وتحتاج متصفحاً حقيقياً.
+    // vitest يجمع `*.spec.ts` افتراضياً، فاستثناؤها هنا يمنع تشغيلها بلا متصفح.
+    exclude: ["**/node_modules/**", "**/dist/**", "tests/e2e/**"],
   },
 })

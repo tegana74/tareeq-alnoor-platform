@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Radio, Loader2, Mic, MicOff, MonitorPlay, MonitorUp, Volume2, AlertCircle, Wifi, ShieldX } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RoomEvent, DisconnectReason, Track, type RemoteTrack } from "livekit-client"
+import { RoomEvent, DisconnectReason, Track, type RemoteTrack, type Room } from "livekit-client"
 import {
   connectStudentSubscriber,
   attachRemoteTrackHandlers,
@@ -33,6 +33,14 @@ type ConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "d
 interface StudentLiveViewerProps {
   sessionId: string
   status: LiveSessionStatus
+  /**
+   * SMART-WB-1B — تُبلَّغ الغرفة الحالية إلى الأعلى (null عند القطع).
+   *
+   * السبورة تحتاج نفس غرفة LiveKit التي يشاهد بها الطالب كي تستقبل أحداث
+   * القناة، ولا يجوز أن تُنشئ اتصالاً ثانياً. المشاهد يبقى المالك الوحيد لدورة
+   * حياة الغرفة؛ هذا إبلاغ لا تسليم.
+   */
+  onRoom?: (room: Room | null) => void
 }
 
 const QUALITY_LABELS: Record<string, string> = {
@@ -41,7 +49,7 @@ const QUALITY_LABELS: Record<string, string> = {
   poor: "ضعيفة",
 }
 
-export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps) {
+export function StudentLiveViewer({ sessionId, status, onRoom }: StudentLiveViewerProps) {
   // LIVE-9A — عنصران دائمان في الـ DOM (لا إزاحة/تركيب شرطي يفقد الـ refs):
   // stage للعرض الرئيسي (شاشة المعلم إن وجدت وإلا الكاميرا) + صورة مصغرة للكاميرا.
   const stageRef = useRef<HTMLVideoElement>(null)
@@ -88,6 +96,16 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
   const detachMicRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(true)
   const firstTrackRef = useRef(false)
+  /**
+   * SMART-WB-1B — المُبلِّغ في ref لا في deps.
+   *
+   * أثر الاتصال يعتمد على sessionId/status/attempt فقط؛ لو دخل onRoom في قائمة
+   * الاعتماديات لأعاد أب لا يُثبّت دالته الاتصال بالغرفة عند كل render.
+   */
+  const onRoomRef = useRef(onRoom)
+  useEffect(() => {
+    onRoomRef.current = onRoom
+  }, [onRoom])
 
   const hasStage = Boolean(remoteCamTrack || remoteScreenTrack)
 
@@ -137,6 +155,8 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           return
         }
         handleRef.current = handle
+        // SMART-WB-1B — الغرفة صارت متاحة: تستقبل السبورة أحداثها من هنا
+        onRoomRef.current?.(handle.room)
 
         detachHandlersRef.current = attachRemoteTrackHandlers(handle.room, {
           onVideoTrack: attachTrack,
@@ -178,6 +198,8 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
           if (!mountedRef.current) return
           setMicGranted(false)
           setMicOn(false)
+          // SMART-WB-1B — الغرفة انتهت: تسقط قناة السبورة وتعود الاستعادة بالاستعلام
+          onRoomRef.current?.(null)
           // LIVE-9C — إخراج بقرار المعلم: حالة نهائية، ولا تُعالَج كإعادة اتصال
           if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
             setRemovedByHost(true)
@@ -252,6 +274,8 @@ export function StudentLiveViewer({ sessionId, status }: StudentLiveViewerProps)
 
     return () => {
       mountedRef.current = false
+      // SMART-WB-1B — لا تُترك غرفة مهجورة بيد السبورة
+      onRoomRef.current?.(null)
       detachHandlersRef.current?.()
       detachHandlersRef.current = null
       // LIVE-9E — إلغاء مستمع الصلاحيات قبل قطع الاتصال: الغرفة القديمة قد تُصدر

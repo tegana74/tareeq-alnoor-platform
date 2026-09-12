@@ -48,3 +48,8 @@ next-env.d.ts
 *.db
 data/uploads/
 dev-server.log
+
+# playwright (SMART-WB-1B browser E2E) — حالات جلسات حقيقية: لا تُرفع أبداً
+/test-results/
+/playwright-report/
+/tests/e2e/.auth/

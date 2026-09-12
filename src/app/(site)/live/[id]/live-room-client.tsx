@@ -29,6 +29,8 @@ import type { LiveSessionStatus } from "@/lib/live-classroom/types"
 import { shouldShowAdmissionPanel } from "@/lib/live-classroom/admission"
 import type { AdmissionState } from "@/lib/live-classroom/admission"
 import { shouldTrackParticipants } from "@/lib/live-classroom/participants"
+import { WhiteboardPanel } from "@/components/live-classroom/whiteboard-panel"
+import { canReadWhiteboard } from "@/lib/live-classroom/whiteboard"
 import { Room, RoomEvent, VideoPresets, createLocalTracks } from "livekit-client"
 import type { LocalVideoTrack } from "livekit-client"
 import {
@@ -52,6 +54,13 @@ interface LiveRoomClientProps {
   durationMinutes: number
   /** LIVE-9B — حالة طلب دخول الطالب مقروءة من السيرفر (المعلم/الأدمن: "none") */
   initialAdmission: AdmissionState
+  /**
+   * SMART-WB-1B — هوية المستخدم من الجلسة المصادَق عليها على الخادم.
+   *
+   * تصل من `page.tsx` لا من العميل: تُستخدم لتمييز صدى كتابتنا على قناة السبورة
+   * عن كتابة غيرنا، ولا يُبنى عليها أي قرار صلاحية — الصلاحية قرار الخادم.
+   */
+  currentUserId: string
 }
 
 export function LiveRoomClient({
@@ -69,6 +78,7 @@ export function LiveRoomClient({
   startAt,
   durationMinutes,
   initialAdmission,
+  currentUserId,
 }: LiveRoomClientProps) {
   const router = useRouter()
   const [status, setStatus] = useState<LiveSessionStatus>(initialStatus)
@@ -106,6 +116,17 @@ export function LiveRoomClient({
   const [participantsRevision, setParticipantsRevision] = useState(0)
   // LIVE-9B — حالة طلب الدخول (يملكها AdmissionGate ويبلّغ الغرفة بها)
   const [admissionState, setAdmissionState] = useState<AdmissionState>(initialAdmission)
+  /**
+   * SMART-WB-1B — غرفة الطالب كما يبلّغ عنها المشاهد.
+   *
+   * السبورة تقرأ أحداثها من نفس الغرفة، ولا تفتح اتصالاً ثانياً. `null` قبل
+   * الاتصال أو بعد انقطاعه، وحينها تعتمد السبورة الاستعادة بالاستعلام.
+   */
+  const [studentRoom, setStudentRoom] = useState<Room | null>(null)
+  // مرجع ثابت: تغيّره سيُعيد تركيب أثر الاتصال في المشاهد
+  const handleStudentRoom = useCallback((next: Room | null) => {
+    setStudentRoom(next)
+  }, [])
 
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -642,6 +663,19 @@ export function LiveRoomClient({
         />
       )}
 
+      {/* SMART-WB-1B — السبورة الذكية للمعلم/الأدمن.
+          الشرط: جلسة LiveKit (لا رابط خارجي) وجلسة غير ملغاة — نفس ما يقرّره
+          `canReadWhiteboard` على الخادم، فلا تُعرض لوحة سيرفضها المسار. الغرفة
+          تُمرَّر كما هي (قد تكون null قبل بدء البثّ) ولا تُنشأ قناة ثانية. */}
+      {isManager && !url && canReadWhiteboard(status) && (
+        <WhiteboardPanel
+          sessionId={sessionId}
+          userId={currentUserId}
+          room={room}
+          canManage
+        />
+      )}
+
       {/* LiveKit Publisher View (Teacher only) */}
       {isManager && !url && room && (
         <div className="mb-6 rounded-2xl border-2 border-slate-200 bg-black p-4 shadow-sm relative overflow-hidden">
@@ -1007,7 +1041,23 @@ export function LiveRoomClient({
               initialState={initialAdmission}
               onStateChange={setAdmissionState}
             >
-              <StudentLiveViewer sessionId={sessionId} status={status} />
+              <StudentLiveViewer
+                sessionId={sessionId}
+                status={status}
+                onRoom={handleStudentRoom}
+              />
+              {/* SMART-WB-1B — سبورة الطالب: قراءة فقط.
+                  داخل البوابة بقصد: لا تُركَّب قبل موافقة المعلم، فلا طلب سبورة
+                  من طالب لم يُقبل بعد (المسار يرفضه أصلاً). `canManage=false`
+                  عرضٌ فقط؛ صلاحية الكتابة يقرّرها الخادم في `canWrite`. */}
+              {canReadWhiteboard(status) && (
+                <WhiteboardPanel
+                  sessionId={sessionId}
+                  userId={currentUserId}
+                  room={studentRoom}
+                  canManage={false}
+                />
+              )}
             </AdmissionGate>
           )}
 

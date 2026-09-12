@@ -667,6 +667,8 @@ model LiveSession {
   bookings        SessionBooking[]
   attendances     LiveSessionAttendance[]
   admissions      LiveSessionAdmission[]
+  // SMART-WB-1A — سبورة واحدة لكل جلسة (علاقة 1:1 عبر sessionId الفريد)
+  whiteboard      WhiteboardBoard?
 
   @@index([classroomId])
   @@map("live_sessions")
@@ -738,6 +740,82 @@ model LiveSessionAdmission {
   @@unique([sessionId, userId])
   @@index([sessionId, status])
   @@map("live_session_admissions")
+}
+
+// ============================= السبورة الذكية (Smart Whiteboard — SMART-WB-1A) =============================
+//
+// إضافة محضة: ثلاثة جداول جديدة، ولا تعديل على أي جدول قائم عدا علاقة عكسية
+// واحدة على LiveSession (علاقة Prisma فقط — لا عمود ولا ALTER في SQL).
+//
+// مصدر الحقيقة لحالة السبورة هو snapshot الخادم (whiteboard_snapshots)، لا رسائل
+// DataChannel: القناة وسيلة بثّ فورية بلا ذاكرة، فأي إعادة اتصال تُستعاد من الخادم.
+//
+// الأدوار: المعلم المالك والأدمن يكتبون حصراً؛ الطلاب قراءة فقط (تُفرض في
+// whiteboard.ts على الخادم، لا في العميل).
+//
+// PDF مؤجَّل إلى المرحلة الثانية — لا عمود له هنا كي لا نضيف عموداً ميتاً.
+
+model WhiteboardBoard {
+  id        String @id @default(cuid())
+  /// جلسة واحدة ⇒ سبورة واحدة. الفريدة هي ما يجعل ensureBoard عملية idempotent.
+  sessionId String @unique
+  /// User.id لمن أنشأ السبورة. نص بلا مفتاح أجنبي — نفس عرف decidedBy في
+  /// live_session_admissions: لا نضيف علاقة عكسية على User في هذا الطور.
+  createdById String
+  status      String  @default("active") // active | archived
+  /// الصفحة المعروضة للطلاب. يقودها المعلم؛ null قبل إنشاء أول صفحة.
+  activePageId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session   LiveSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pages     WhiteboardPage[]
+  snapshots WhiteboardSnapshot[]
+
+  @@index([status])
+  @@map("whiteboard_boards")
+}
+
+model WhiteboardPage {
+  id      String @id @default(cuid())
+  boardId String
+  /// ترتيب متصل يبدأ من 0. غير فريد بقصد: قيد فريد على (boardId, order) يجعل
+  /// إعادة الترتيب تصطدم بنفسها في منتصف المعاملة (تصادم على قيمة مؤقتة).
+  /// التواصل والتفرّد يُفرضان في whiteboard.ts (normalizePageOrder) وداخل معاملة.
+  order     Int      @default(0)
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board     WhiteboardBoard      @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  snapshots WhiteboardSnapshot[]
+
+  @@index([boardId, order])
+  @@map("whiteboard_pages")
+}
+
+model WhiteboardSnapshot {
+  id      String @id @default(cuid())
+  boardId String
+  pageId  String
+  /// رقم المراجعة لكل صفحة، يتزايد بواحد. القيد الفريد (pageId, revision) هو
+  /// حاجز التعارض الحقيقي: كتابتان متزامنتان على نفس المراجعة ⇒ إحداهما تفشل
+  /// بـ P2002 بدل أن تطمس الأخرى.
+  revision Int
+  /// عناصر Excalidraw كما هي (مصفوفة). محدودة الحجم عبر sizeBytes وعقود zod.
+  elements Json
+  /// حجم elements بالبايت وقت الكتابة — يُخزَّن كي تُراقب الأحجام بلا إعادة تسلسل.
+  sizeBytes   Int
+  /// User.id للكاتب (معلم/أدمن). نص بلا مفتاح أجنبي — كما في createdById أعلاه.
+  createdById String
+  createdAt   DateTime @default(now())
+
+  board WhiteboardBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  page  WhiteboardPage  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, revision])
+  @@index([boardId, createdAt])
+  @@map("whiteboard_snapshots")
 }
 
 // ============================= خطة المذاكرة =============================

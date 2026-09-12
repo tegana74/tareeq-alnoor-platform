@@ -397,40 +397,45 @@ export function ExamEditor({ sectionId, exam }: ExamEditorProps) {
   return (
     <div>
       {open ? (
-        <form action={formAction} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <input type="hidden" name="sectionId" value={sectionId} />
-          <input type="hidden" name="id" value={exam?.id ?? ""} />
-          <input type="hidden" name="order" value={exam?.order ?? 0} />
-          <div className="mb-2 grid gap-2 sm:grid-cols-3">
-            <input name="title" required placeholder="عنوان الاختبار" defaultValue={exam?.title} className={inputCls} />
-            <select name="type" defaultValue={exam?.type ?? "EXAM"} className={inputCls}>
-              <option value="EXAM">اختبار</option>
-              <option value="HOMEWORK">واجب منزلي</option>
-            </select>
-            <input
-              name="durationMinutes"
-              type="number"
-              min={1}
-              defaultValue={exam?.durationMinutes ?? 60}
-              className={inputCls}
-              placeholder="المدة (دقيقة)"
-            />
-          </div>
-          <label className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-            <input type="checkbox" name="isFree" defaultChecked={exam?.isFree} className="h-4 w-4 accent-amber-500" />
-            اختبار مجاني
-          </label>
-          <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" variant="navy" disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ
-            </Button>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <form action={formAction}>
+            <input type="hidden" name="sectionId" value={sectionId} />
+            <input type="hidden" name="id" value={exam?.id ?? ""} />
+            <input type="hidden" name="order" value={exam?.order ?? 0} />
+            <div className="mb-2 grid gap-2 sm:grid-cols-3">
+              <input name="title" required placeholder="عنوان الاختبار" defaultValue={exam?.title} className={inputCls} />
+              <select name="type" defaultValue={exam?.type ?? "EXAM"} className={inputCls}>
+                <option value="EXAM">اختبار</option>
+                <option value="HOMEWORK">واجب منزلي</option>
+              </select>
+              <input
+                name="durationMinutes"
+                type="number"
+                min={1}
+                defaultValue={exam?.durationMinutes ?? 60}
+                className={inputCls}
+                placeholder="المدة (دقيقة)"
+              />
+            </div>
+            <label className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
+              <input type="checkbox" name="isFree" defaultChecked={exam?.isFree} className="h-4 w-4 accent-amber-500" />
+              اختبار مجاني
+            </label>
+            <div className="flex items-center gap-2">
+              <Button type="submit" size="sm" variant="navy" disabled={pending}>
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                إلغاء
+              </Button>
+            </div>
+            <ErrorBox error={state.error} />
+          </form>
+          {/* معالج الاستيراد نموذج مستقل — خارج نموذج الحفظ الرئيسي لمنع تداخل النماذج */}
+          <div className="mt-4">
             <ExamImportToggle sectionId={sectionId} />
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
-              إلغاء
-            </Button>
           </div>
-          <ErrorBox error={state.error} />
-        </form>
+        </div>
       ) : (
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
           {exam ? "تعديل" : <><Plus className="h-4 w-4" /> اختبار</>}

@@ -236,6 +236,197 @@ Before changing architecture:
 
 ---
 
+## Claude Code Skills Policy
+
+Skills must be selected deliberately by task type, not left to automatic selection alone.
+
+### Installed Skills
+
+Verified available in this environment (2026-08-25). Use these exact invocation names:
+
+| Purpose | Skill name |
+| --- | --- |
+| Frontend / UI / UX design | `frontend-design` (also `front:frontend-design`) |
+| Browser / E2E automation | `playwright` |
+| Frontend testing | `front:frontend-testing` |
+| Frontend code review | `front:frontend-code-review` |
+
+The `front:` prefix comes from the `frontend-skills` plugin. Re-verify availability before relying on any skill (see Skill Discovery below).
+
+### 1. Frontend / UI / UX
+
+Use `frontend-design` for any task involving:
+
+- creating a screen
+- modifying an interface
+- React components
+- Tailwind
+- layout
+- responsive design
+- accessibility
+- visual hierarchy
+- interaction design
+
+After implementation, use the frontend code review skill to review:
+
+- component structure
+- React hooks
+- performance
+- accessibility
+- maintainability
+
+### 2. Browser / E2E
+
+Use `playwright` for any task that requires:
+
+- real login
+- testing an actual page
+- camera / microphone
+- screen sharing
+- LiveKit browser behavior
+- Waiting Room
+- Chat
+- Raise Hand
+- participant management
+- reconnect behavior
+- mobile / responsive browser behavior
+
+Vitest is not a substitute for browser E2E when the behavior depends on the browser, hardware permissions, or media APIs.
+
+### 3. Frontend Testing
+
+Use `front:frontend-testing` when creating or modifying:
+
+- React UI tests
+- browser-facing logic
+- component behavior
+
+### 4. Code Review
+
+Before closing any large frontend phase, use `front:frontend-code-review` to review:
+
+- architecture
+- React state
+- hooks dependencies
+- unnecessary rerenders
+- accessibility
+- security boundaries
+- dead code
+- duplicated logic
+
+### 5. Design Review
+
+At the end of any UI/UX phase, use `frontend-design` to review:
+
+- typography
+- spacing
+- visual hierarchy
+- consistency
+- responsive behavior
+- empty states
+- error states
+- loading states
+- accessibility
+- mobile behavior
+
+### 6. Live Classroom Special Rules
+
+For LIVE-9 and later:
+
+| Phase | Required skills |
+| --- | --- |
+| LIVE-9A — Camera / Screen Share | `frontend-design`, `playwright`, `front:frontend-testing` |
+| LIVE-9B — Admission / Waiting Room | `frontend-design`, `playwright`, `front:frontend-testing`, `front:frontend-code-review` |
+| LIVE-9C — Participant Management | `frontend-design`, `playwright`, `front:frontend-testing`, `front:frontend-code-review` |
+| LIVE-9D — Chat / Raise Hand | `frontend-design`, `playwright`, `front:frontend-testing` |
+| LIVE-9E — Microphone Permissions / Mute All | `playwright`, `front:frontend-testing`, `front:frontend-code-review` |
+| LIVE-9F | `playwright`, `front:frontend-testing`, `front:frontend-code-review` |
+
+### 7. Do Not Load Every Skill For Every Task
+
+Do not load all available skills for every task. Select only the skills that match the current scope.
+
+Purpose:
+
+- reduce conflicting instructions
+- reduce context usage
+- increase accuracy
+- preserve execution speed
+
+### 8. Skill Discovery
+
+Before using a skill, confirm it is installed and available.
+
+If a required skill is not installed:
+
+- do not invent a skill name
+- do not claim to have used it
+- tell the user it is unavailable
+- continue without it only if that is safe
+
+### 9. Skill Priority
+
+When skill instructions conflict with:
+
+- CLAUDE.md
+- AGENTS.md
+- security rules
+- phase scope
+
+project rules and Security/Scope always take priority.
+
+### 10. Phase Completion
+
+A phase is not complete merely because:
+
+- TypeScript passes
+- ESLint passes
+- Vitest passes
+
+For Browser/UI/LiveKit tasks that depend on browser behavior, Browser E2E is part of the required completion evidence.
+
+### 11. Production Verification
+
+When working with:
+
+- LiveKit
+- camera
+- microphone
+- screen sharing
+- Waiting Room
+- chat
+- participant moderation
+
+distinguish clearly between, and never conflate:
+
+- Unit tests
+- Integration tests
+- Browser E2E
+- Production smoke test
+
+### 12. No False Claims
+
+Do not say "Complete" if the testing required by the phase scope was not actually executed.
+
+If Browser E2E was not run, state explicitly:
+
+"Implementation complete, browser E2E pending"
+
+If a local build fails because of a pre-existing environment issue, do not fix unrelated code just to turn the build green.
+
+### 13. Reports
+
+Every phase report must include:
+
+- Skills used
+- Why each skill was used
+- Tests run
+- Browser E2E status
+- Production verification
+- Remaining risks
+
+---
+
 ## Reports
 
 Every phase must create:
